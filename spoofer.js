@@ -325,15 +325,6 @@ class SpooferEngine {
                     
                     this.log(`[${imei}] Finished Ghost Drive.`);
                     
-                    // Generate a "STOP" payload so the tracker app doesn't show it stuck as "Running"
-                    const stop_time = new Date(start_date.getTime() + (broadcasts_per_day * 5000) + 1000);
-                    const stop_time_str = this.formatDateStr(stop_time);
-                    const stop_coord_str = `+${curr_lat.toFixed(6)},+${curr_lng.toFixed(6)}`;
-                    const stop_odo_str = `${total_odo.toFixed(6)}-${today_odo.toFixed(6)}`;
-                    const stop_payload = `##,${imei},0,${stop_time_str},${stop_coord_str},0,0.0,0,1,100.0,${stop_odo_str},0-0,0-0,0-0,+0.0,0,0-0-0-0,2000-00-00 00:00:00,2000-00-00 00:00:00,25,4000,0,1-0-0-0-0,0,0,0-0,0,0,0,1,0-0,4000,1,0,0,0,00000-00,$`;
-                    client.publish(topic, stop_payload);
-                    await new Promise(r => setTimeout(r, 50));
-                    
                     // SHIELD MODE for Node.js
                     if (config.shield_hours > 0 && !config.history_date) {
                         this.log(`[${imei}] Ghost Drive finished. Shield engaged.`);
@@ -353,9 +344,9 @@ class SpooferEngine {
                                 return;
                             }
                             
-                            // Re-use the STOP payload to prevent continuous running status
-                            if (stop_payload) {
-                                client.publish(topic, stop_payload);
+                            // Re-use exact last payload to prevent continuous running status
+                            if (last_payload) {
+                                client.publish(topic, last_payload);
                             }
                             loops_done++;
                         }, 3000); // 3 seconds
