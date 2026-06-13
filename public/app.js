@@ -135,7 +135,6 @@ document.addEventListener('DOMContentLoaded', () => {
             stopBtn.classList.add('hidden');
             spinner.classList.add('hidden');
             document.querySelectorAll('input, select, button.btn-secondary').forEach(i => i.disabled = false);
-            if(pollingInterval) clearInterval(pollingInterval);
         }
     }
 
@@ -149,14 +148,75 @@ document.addEventListener('DOMContentLoaded', () => {
             terminalOutput.innerHTML = '';
             data.logs.forEach(log => addLogLine(log));
             
-            if(!data.is_running && pollingInterval) {
-                clearInterval(pollingInterval);
+            // Render Scheduled Jobs
+            const scheduledList = document.getElementById('scheduled-jobs-list');
+            if (data.scheduled_jobs && data.scheduled_jobs.length > 0) {
+                scheduledList.innerHTML = data.scheduled_jobs.map((job, idx) => `
+                    <div style="background: rgba(255, 255, 255, 0.05); padding: 0.5rem; margin-bottom: 0.5rem; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong>Vehicles:</strong> ${job.imeis ? job.imeis.length : 0} <br>
+                            <strong>Target:</strong> ${job.target_hours || 0} Hrs <br>
+                            <strong>Shield:</strong> ${job.shield_hours || 0} Hrs
+                        </div>
+                        <button onclick="cancelSchedule(${idx})" style="background: #f44336; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer;">Cancel</button>
+                    </div>
+                `).join('');
+            } else {
+                scheduledList.innerHTML = "No jobs scheduled.";
+            }
+
+            // Render Active Shields
+            const shieldsList = document.getElementById('active-shields-list');
+            if (data.active_shields && data.active_shields.length > 0) {
+                shieldsList.innerHTML = data.active_shields.map(s => `
+                    <div style="background: rgba(255, 255, 255, 0.05); padding: 0.5rem; margin-bottom: 0.5rem; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong>IMEI:</strong> ${s.imei} <br>
+                            <strong>Expires:</strong> ${s.expiry_time}
+                        </div>
+                        <button onclick="cancelShield('${s.imei}')" style="background: #f44336; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer;">Cancel</button>
+                    </div>
+                `).join('');
+            } else {
+                shieldsList.innerHTML = "No active shields.";
             }
             
         } catch (e) {
             console.error("Failed to poll status", e);
         }
     }
+    
+    // Set polling to run forever every 2 seconds
+    pollingInterval = setInterval(pollStatus, 2000);
+
+    // Cancel functions exposed to window
+    window.cancelSchedule = async function(index) {
+        if (!confirm("Cancel this scheduled job?")) return;
+        try {
+            const res = await fetch('/api/cancel_schedule', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ index })
+            });
+            const data = await res.json();
+            alert(data.message);
+            pollStatus();
+        } catch (e) { alert("Error cancelling."); }
+    };
+
+    window.cancelShield = async function(imei) {
+        if (!confirm("Cancel the shield for " + imei + "? Hardware tracking will resume instantly!")) return;
+        try {
+            const res = await fetch('/api/cancel_shield', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ imei })
+            });
+            const data = await res.json();
+            alert(data.message);
+            pollStatus();
+        } catch (e) { alert("Error cancelling."); }
+    };
 
     startBtn.addEventListener('click', async () => {
         const selectedOptions = Array.from(vehicleSelect.selectedOptions);
@@ -201,7 +261,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 terminalOutput.innerHTML = '';
                 addLogLine(`Initializing spoofer engine for ${imeis.length} vehicles...`);
                 updateStatus(true);
-                pollingInterval = setInterval(pollStatus, 1000);
             } else {
                 alert("Error starting spoofer: " + data.message);
             }
@@ -251,6 +310,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (data.success) {
                     alert(data.message);
                     addLogLine(`[SCHEDULED] ${imeis.length} vehicles scheduled for 11:55 PM.`);
+                    pollStatus();
                 } else {
                     alert("Error scheduling: " + data.message);
                 }

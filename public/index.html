@@ -122,6 +122,26 @@
                     <div class="log-line text-muted">Awaiting connection...</div>
                 </div>
             </div>
+
+            <div class="card tasks-panel" style="margin-top: 1rem;">
+                <div class="log-header">
+                    <h2>Active Background Tasks</h2>
+                </div>
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                    <div style="flex: 1; background: var(--bg-dark); padding: 1rem; border-radius: 8px;">
+                        <h3 style="color: #ff9800; font-size: 1rem; margin-bottom: 0.5rem;">🕒 Scheduled for 11:55 PM</h3>
+                        <div id="scheduled-jobs-list" style="color: #aaa; font-size: 0.9rem;">
+                            No jobs scheduled.
+                        </div>
+                    </div>
+                    <div style="flex: 1; background: var(--bg-dark); padding: 1rem; border-radius: 8px;">
+                        <h3 style="color: #00bcd4; font-size: 1rem; margin-bottom: 0.5rem;">🛡️ Active Shields</h3>
+                        <div id="active-shields-list" style="color: #aaa; font-size: 0.9rem;">
+                            No active shields.
+                        </div>
+                    </div>
+                </div>
+            </div>
         </main>
     </div>
 

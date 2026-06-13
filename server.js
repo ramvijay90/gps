@@ -119,8 +119,28 @@ app.get('/api/status', (req, res) => {
     res.json({
         is_running: engine.is_running,
         mode: engine.mode,
-        logs: engine.get_logs()
+        logs: engine.get_logs(),
+        scheduled_jobs: loadScheduledJobs(),
+        active_shields: engine.get_active_shields()
     });
+});
+
+app.post('/api/cancel_schedule', (req, res) => {
+    const { index } = req.body;
+    const jobs = loadScheduledJobs();
+    if (index >= 0 && index < jobs.length) {
+        jobs.splice(index, 1);
+        saveScheduledJobs(jobs);
+        res.json({ success: true, message: 'Scheduled job cancelled successfully.' });
+    } else {
+        res.json({ success: false, message: 'Job not found.' });
+    }
+});
+
+app.post('/api/cancel_shield', (req, res) => {
+    const { imei } = req.body;
+    const success = engine.cancel_shield(imei);
+    res.json({ success: success, message: success ? `Shield for ${imei} cancelled.` : 'Shield not found.' });
 });
 
 app.listen(port, () => {

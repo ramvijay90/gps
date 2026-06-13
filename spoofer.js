@@ -23,6 +23,8 @@ class SpooferEngine {
         this.logs = [];
         this.MQTT_BROKER = "mqtt://igps.io:1883";
         this.is_scheduled = false;
+        
+        this.active_shields_list = {}; // { imei: { expiry_time, cancel, interval } }
     }
     
     log(message) {
@@ -35,6 +37,21 @@ class SpooferEngine {
     
     get_logs() {
         return this.logs;
+    }
+    
+    get_active_shields() {
+        return Object.keys(this.active_shields_list).map(imei => ({
+            imei: imei,
+            expiry_time: this.active_shields_list[imei].expiry_time
+        }));
+    }
+    
+    cancel_shield(imei) {
+        if (this.active_shields_list[imei]) {
+            this.active_shields_list[imei].cancel();
+            return true;
+        }
+        return false;
     }
     
     async fetch_live_data_instant(imei, target_date = null) {
@@ -108,6 +125,8 @@ class SpooferEngine {
         this.is_running = true;
         this.clients = [];
         this.intervals = [];
+        // Note: we do not clear active_shields_list on start, because some might be running from previous starts!
+        
         
         this.log(`Starting Engine for ${this.imeis.length} vehicles in ${this.mode.toUpperCase()} mode.`);
         
@@ -128,6 +147,13 @@ class SpooferEngine {
             try { client.end(); } catch(e) {}
         });
         this.clients = [];
+        
+        // Clear all shields explicitly
+        Object.keys(this.active_shields_list).forEach(imei => {
+            try { this.active_shields_list[imei].cancel(); } catch(e) {}
+        });
+        this.active_shields_list = {};
+        this.active_shields = 0;
         
         this.log("[-] Spoofer stopped. All vehicles reverted to hardware tracking.");
         return true;
@@ -322,16 +348,42 @@ class SpooferEngine {
                         this.active_shields++;
                         this.log(`[${imei}] Active SHIELD MODE engaged for ${this.shield_hours} hours. Crushing hardware pings...`);
                         
+                        const expiryDate = new Date(Date.now() + this.shield_hours * 3600000);
+                        const expiryStr = this.formatDateStr(expiryDate);
+                        
                         const shield_loops = Math.floor((this.shield_hours * 3600) / 3);
                         let loops_done = 0;
                         
+                        let is_cancelled = false;
+                        
+                        this.active_shields_list[imei] = {
+                            expiry_time: expiryStr,
+                            cancel: () => {
+                                is_cancelled = true;
+                                if (this.active_shields_list[imei] && this.active_shields_list[imei].interval) {
+                                    clearInterval(this.active_shields_list[imei].interval);
+                                }
+                                try { client.end(); } catch(e) {}
+                                delete this.active_shields_list[imei];
+                                this.active_shields = Math.max(0, this.active_shields - 1);
+                                this.log(`[${imei}] Shield manually cancelled.`);
+                                if (this.active_shields === 0 && this.is_running) {
+                                    this.log("[+] All Shields cancelled. Spoofer resting.");
+                                    this.is_running = false;
+                                }
+                            }
+                        };
+                        
                         // We use setInterval for the shield so it runs asynchronously
                         const shield_interval = setInterval(() => {
+                            if (is_cancelled) return;
+                            
                             if (!this.is_running || loops_done >= shield_loops) {
                                 clearInterval(shield_interval);
-                                this.log(`[${imei}] Shield Time expired. Releasing connection.`);
+                                if (!is_cancelled) this.log(`[${imei}] Shield Time expired. Releasing connection.`);
                                 client.end();
-                                this.active_shields--;
+                                delete this.active_shields_list[imei];
+                                this.active_shields = Math.max(0, this.active_shields - 1);
                                 
                                 if (this.active_shields === 0 && this.is_running) {
                                     this.log("[+] All Shields expired. Spoofer resting.");
@@ -348,6 +400,7 @@ class SpooferEngine {
                             }
                             loops_done++;
                         }, 3000); // 3 seconds
+                        this.active_shields_list[imei].interval = shield_interval;
                         this.intervals.push(shield_interval);
                         
                     } else if (this.history_date) {
