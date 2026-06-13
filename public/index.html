@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>iGPS Admin Control</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="dashboard">
+        <header>
+            <div class="logo">
+                <span class="icon">🛰️</span>
+                <h1>iGPS Control Panel</h1>
+            </div>
+            <div class="status-indicator">
+                <span id="system-status" class="status-badge offline">System Offline</span>
+            </div>
+        </header>
+
+        <main>
+            <div class="card config-panel">
+                <h2>Spoofing Configuration</h2>
+                
+                <div class="form-group">
+                    <label for="vehicle-select">Select Vehicles (Hold Ctrl/Cmd to select multiple)</label>
+                    <select id="vehicle-select" class="form-control" multiple size="8" style="height: auto;">
+                        <option value="">Loading vehicles...</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <button id="select-all-btn" class="btn btn-secondary" style="margin-bottom: 1rem; padding: 0.5rem; font-size: 0.8rem;">Select All Vehicles</button>
+                </div>
+
+                <div class="coordinates">
+                    <div class="form-group">
+                        <label for="lat">Latitude</label>
+                        <input type="text" id="lat" value="10.790483" placeholder="e.g. +10.790">
+                    </div>
+                    <div class="form-group">
+                        <label for="lng">Longitude</label>
+                        <input type="text" id="lng" value="78.704673" placeholder="e.g. +78.704">
+                    </div>
+                </div>
+
+                <div class="mode-selector">
+                    <h3>Operation Mode</h3>
+                    <div class="radio-group" style="grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem;">
+                        <label class="radio-card active" id="mode-parked-label">
+                            <input type="radio" name="mode" value="parked" checked>
+                            <span class="title">🅿️ Parked Mode</span>
+                            <span class="desc">Hold vehicle at fixed location. Engine OFF.</span>
+                        </label>
+                        <label class="radio-card" id="mode-drive-label">
+                            <input type="radio" name="mode" value="drive">
+                            <span class="title">👻 Ghost Drive (Hours)</span>
+                            <span class="desc">Add Hours ONLY. Uses empty coordinates.</span>
+                        </label>
+                        <label class="radio-card" id="mode-drive-km-label">
+                            <input type="radio" name="mode" value="drive_km">
+                            <span class="title">🚗 Ghost Drive (KM)</span>
+                            <span class="desc">Add KM + Hours. Uses micro-bouncing GPS trick.</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div id="drive-settings" class="hidden">
+                    <div class="form-group">
+                        <label for="history_date">Start Ghost Trip From Date (Calendar)</label>
+                        <input type="date" id="history_date" class="form-control">
+                        <small style="color: var(--text-secondary); font-size: 0.75rem;">Leave empty to run ghost trip live right now.</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Duration to Add (Total Drive Time)</label>
+                        <div style="display: flex; gap: 1rem;">
+                            <div style="flex: 1;">
+                                <small style="color: var(--text-secondary); display: block; margin-bottom: 0.25rem;">Hours</small>
+                                <input type="number" id="target_hours" value="0" min="0" max="24" step="1">
+                            </div>
+                            <div style="flex: 1;">
+                                <small style="color: var(--text-secondary); display: block; margin-bottom: 0.25rem;">Minutes</small>
+                                <input type="number" id="target_minutes" value="20" min="0" max="59" step="1">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Starting Odometer (Total KM) <span style="font-size: 0.8em; color: #ffeb3b;">*REQUIRED FOR KM VEHICLES*</span></label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="number" id="start_odo" step="0.1" value="0" placeholder="e.g. 12500.5" style="flex: 1;">
+                            <input type="hidden" id="start_today_odo" value="0">
+                            <button type="button" id="btn-fetch-odo" style="padding: 10px 15px; background: #00bcd4; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s;">Auto-Fetch State</button>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="speed">Simulated Speed (KM/H)</label>
+                        <input type="number" id="speed" value="40" min="10" max="120">
+                    </div>
+                    
+                    <div class="form-group" id="shield-settings" style="display: none;">
+                        <label for="shield_hours" style="color: #00bcd4; font-weight: bold;">🛡️ Shield Mode Duration (Hours)</label>
+                        <input type="number" id="shield_hours" value="0" min="0" max="24" placeholder="e.g. 7 for a 7-hour block">
+                        <small style="color: #666; font-size: 0.8rem; margin-top: 5px; display: block;">Continuously blocks hardware pings for this many hours.</small>
+                    </div>
+                </div>
+
+                <div class="actions">
+                    <button id="start-btn" class="btn btn-primary">Start Spoofing</button>
+                    <button id="schedule-btn" class="btn btn-warning hidden" style="background-color: #ff9800; color: white;">Schedule for 11:55 PM</button>
+                    <button id="stop-btn" class="btn btn-danger hidden">Stop Spoofing</button>
+                </div>
+            </div>
+
+            <div class="card log-panel">
+                <div class="log-header">
+                    <h2>Live Telemetry Feed</h2>
+                    <div class="spinner hidden" id="loading-spinner"></div>
+                </div>
+                <div class="terminal" id="terminal-output">
+                    <div class="log-line text-muted">Awaiting connection...</div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
