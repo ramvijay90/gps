@@ -16,7 +16,9 @@ class SpooferEngine {
     }
     
     log(message) {
-        const timestamp = new Date().toTimeString().split(' ')[0];
+        // Shift time by 5 hours 30 minutes for IST
+        const istTime = new Date(Date.now() + (330 * 60000));
+        const timestamp = istTime.toISOString().split('T')[1].substring(0, 8);
         this.logs.push(`[${timestamp}] ${message}`);
         if (this.logs.length > 100) {
             this.logs.shift();
@@ -155,7 +157,9 @@ class SpooferEngine {
     }
     
     formatDateStr(dateObj) {
-        return dateObj.toISOString().replace('T', ' ').substring(0, 19);
+        // Shift by 5 hours 30 mins to get IST string representation
+        const istTime = new Date(dateObj.getTime() + (330 * 60000));
+        return istTime.toISOString().replace('T', ' ').substring(0, 19);
     }
     
     async _process_vehicle(imei, config) {
