@@ -338,10 +338,10 @@ class SpooferEngine {
                                 return;
                             }
                             
-                            // Re-calculate odo string for the last location
-                            const odo_str = `${total_odo.toFixed(6)}-${today_odo.toFixed(6)}`;
-                            const coord_str = `+${curr_lat.toFixed(6)},+${curr_lng.toFixed(6)}`;
+                            // Generate fresh payload for shield
                             const time_str = this.formatDateStr(new Date());
+                            const coord_str = `+${curr_lat.toFixed(6)},+${curr_lng.toFixed(6)}`;
+                            const odo_str = `${total_odo.toFixed(6)}-${today_odo.toFixed(6)}`;
                             
                             const payload = `##,${imei},0,${time_str},${coord_str},${this.speed},45.0,0,1,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,28,3950,0,1-1-0-1-1,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
                             client.publish(topic, payload);
