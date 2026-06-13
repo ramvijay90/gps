@@ -34,15 +34,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     shieldSettings.style.display = 'none';
                 }
             }
-            
-            const scheduleBtn = document.getElementById('schedule-btn');
-            if (scheduleBtn) {
-                if (currentMode === 'drive_km') {
-                    scheduleBtn.classList.remove('hidden');
-                } else {
-                    scheduleBtn.classList.add('hidden');
-                }
-            }
         });
     });
 
@@ -132,6 +123,7 @@ document.addEventListener('DOMContentLoaded', () => {
             statusBadge.className = 'status-badge online';
             statusBadge.textContent = 'Spoofer Active';
             startBtn.classList.add('hidden');
+            if (document.getElementById('schedule-btn')) document.getElementById('schedule-btn').classList.add('hidden');
             stopBtn.classList.remove('hidden');
             spinner.classList.remove('hidden');
             document.querySelectorAll('input, select, button.btn-secondary').forEach(i => i.disabled = true);
@@ -139,6 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
             statusBadge.className = 'status-badge offline';
             statusBadge.textContent = 'System Offline';
             startBtn.classList.remove('hidden');
+            if (document.getElementById('schedule-btn')) document.getElementById('schedule-btn').classList.remove('hidden');
             stopBtn.classList.add('hidden');
             spinner.classList.add('hidden');
             document.querySelectorAll('input, select, button.btn-secondary').forEach(i => i.disabled = false);
