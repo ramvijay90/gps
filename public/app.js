@@ -121,21 +121,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateStatus(isRunning) {
         if (isRunning) {
             statusBadge.className = 'status-badge online';
-            statusBadge.textContent = 'Spoofer Active';
-            startBtn.classList.remove('hidden'); // NEVER HIDE START BUTTON
-            if (document.getElementById('schedule-btn')) document.getElementById('schedule-btn').classList.remove('hidden');
-            stopBtn.classList.remove('hidden');
-            stopBtn.textContent = 'Stop All Spoofing';
-            spinner.classList.remove('hidden');
-            // document.querySelectorAll('input, select, button.btn-secondary').forEach(i => i.disabled = true); // DO NOT DISABLE INPUTS
+            statusBadge.textContent = 'System Online';
         } else {
             statusBadge.className = 'status-badge offline';
             statusBadge.textContent = 'System Offline';
-            startBtn.classList.remove('hidden');
-            if (document.getElementById('schedule-btn')) document.getElementById('schedule-btn').classList.remove('hidden');
-            stopBtn.classList.add('hidden');
-            spinner.classList.add('hidden');
-            // document.querySelectorAll('input, select, button.btn-secondary').forEach(i => i.disabled = false);
         }
     }
 
@@ -260,7 +249,8 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (data.success) {
                 terminalOutput.innerHTML = '';
-                addLogLine(`Initializing spoofer engine for ${imeis.length} vehicles...`);
+                addLogLine(`Task started for ${imeis.length} vehicles. Moving to background...`);
+                alert("Spoofing task sent to background! You can monitor or cancel it in the Active Background Tasks section below.");
                 updateStatus(true);
             } else {
                 alert("Error starting spoofer: " + data.message);
@@ -321,20 +311,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    stopBtn.addEventListener('click', async () => {
-        if (!confirm("Are you sure you want to STOP ALL active ghost drives and shields instantly?")) return;
-        try {
-            const res = await fetch('/api/stop', { method: 'POST' });
-            const data = await res.json();
-            if (data.success) {
-                updateStatus(false);
-                addLogLine("[-] System offline. Reverted to hardware tracking.", true);
-                pollStatus();
-            }
-        } catch (e) {
-            alert("Network error.");
-        }
-    });
+    // Removed global Stop button logic as user prefers canceling individual tasks
     
     pollStatus();
 });
