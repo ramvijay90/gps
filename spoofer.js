@@ -157,7 +157,12 @@ class SpooferEngine {
     }
     
     formatDateStr(dateObj) {
-        // Shift by 5 hours 30 mins to get IST string representation
+        // GPS Payloads MUST be in UTC for the tracking server to accept them properly
+        return dateObj.toISOString().replace('T', ' ').substring(0, 19);
+    }
+    
+    formatDateStrIST(dateObj) {
+        // UI and Logs should be in IST
         const istTime = new Date(dateObj.getTime() + (330 * 60000));
         return istTime.toISOString().replace('T', ' ').substring(0, 19);
     }
@@ -171,7 +176,7 @@ class SpooferEngine {
             
             if (config.mode === "drive_km" && config.shield_hours > 0 && !config.history_date) {
                 const expiryDate = new Date(Date.now() + config.shield_hours * 3600000);
-                const expiryStr = this.formatDateStr(expiryDate);
+                const expiryStr = this.formatDateStrIST(expiryDate);
                 
                 this.active_shields_list[imei] = {
                     expiry_time: expiryStr,
@@ -336,6 +341,9 @@ class SpooferEngine {
                         const shield_loops = Math.floor((config.shield_hours * 3600) / 3);
                         let loops_done = 0;
                         
+                        const shield_coord_str = `+${curr_lat.toFixed(6)},+${curr_lng.toFixed(6)}`;
+                        const shield_odo_str = `${total_odo.toFixed(6)}-${today_odo.toFixed(6)}`;
+                        
                         // We use setInterval for the shield so it runs asynchronously
                         shield_interval_id = setInterval(() => {
                             if (is_cancelled || this.kill_all_drives) return;
@@ -348,10 +356,11 @@ class SpooferEngine {
                                 return;
                             }
                             
-                            // Re-use exact last payload to prevent continuous running status
-                            if (last_payload) {
-                                client.publish(topic, last_payload);
-                            }
+                            // Send live timestamps with Speed=0 so the server marks it as Idle/Halt permanently
+                            const new_time_str = this.formatDateStr(new Date());
+                            const shield_payload = `##,${imei},0,${new_time_str},${shield_coord_str},0,45.0,0,1,91.26,${shield_odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,28,3950,0,1-1-0-1-1,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
+                            
+                            client.publish(topic, shield_payload);
                             loops_done++;
                         }, 3000); // 3 seconds
                         
