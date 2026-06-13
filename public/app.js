@@ -122,11 +122,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isRunning) {
             statusBadge.className = 'status-badge online';
             statusBadge.textContent = 'Spoofer Active';
-            startBtn.classList.add('hidden');
-            if (document.getElementById('schedule-btn')) document.getElementById('schedule-btn').classList.add('hidden');
+            startBtn.classList.remove('hidden'); // NEVER HIDE START BUTTON
+            if (document.getElementById('schedule-btn')) document.getElementById('schedule-btn').classList.remove('hidden');
             stopBtn.classList.remove('hidden');
+            stopBtn.textContent = 'Stop All Spoofing';
             spinner.classList.remove('hidden');
-            document.querySelectorAll('input, select, button.btn-secondary').forEach(i => i.disabled = true);
+            // document.querySelectorAll('input, select, button.btn-secondary').forEach(i => i.disabled = true); // DO NOT DISABLE INPUTS
         } else {
             statusBadge.className = 'status-badge offline';
             statusBadge.textContent = 'System Offline';
@@ -134,7 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (document.getElementById('schedule-btn')) document.getElementById('schedule-btn').classList.remove('hidden');
             stopBtn.classList.add('hidden');
             spinner.classList.add('hidden');
-            document.querySelectorAll('input, select, button.btn-secondary').forEach(i => i.disabled = false);
+            // document.querySelectorAll('input, select, button.btn-secondary').forEach(i => i.disabled = false);
         }
     }
 
@@ -321,12 +322,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     stopBtn.addEventListener('click', async () => {
+        if (!confirm("Are you sure you want to STOP ALL active ghost drives and shields instantly?")) return;
         try {
             const res = await fetch('/api/stop', { method: 'POST' });
             const data = await res.json();
             if (data.success) {
                 updateStatus(false);
                 addLogLine("[-] System offline. Reverted to hardware tracking.", true);
+                pollStatus();
             }
         } catch (e) {
             alert("Network error.");

