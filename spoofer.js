@@ -1,12 +1,10 @@
 const mqtt = require('mqtt');
 const axios = require('axios');
 const fs = require('fs');
-
-const fs = require(\'fs\');
-const path = require(\'path\');
+const path = require('path');
 let vehicle_db = [];
 try {
-    vehicle_db = JSON.parse(fs.readFileSync(path.join(__dirname, \'vehicles.json\'), \'utf8\'));
+    vehicle_db = JSON.parse(fs.readFileSync(path.join(__dirname, 'vehicles.json'), 'utf8'));
 } catch(e) {}
 
 class SpooferEngine {
