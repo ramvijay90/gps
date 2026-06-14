@@ -255,7 +255,7 @@ class SpooferEngine {
                         today_odo += dist_km;
                         const odo_str = `${total_odo.toFixed(6)}-${today_odo.toFixed(6)}`;
                         
-                        const payload = `##,${imei},0,${time_str},,,${config.speed},45.0,0,1,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,28,3950,0,0-1-0-1-1,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
+                        const payload = `##,${imei},0,${time_str},,,${config.speed},26.5,0,1,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,28,3950,0,0-1-0-1-1,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
                         client.publish(topic, payload);
                         await new Promise(r => setTimeout(r, 5)); // 5ms sleep
                     }
@@ -327,7 +327,7 @@ class SpooferEngine {
                         const coord_str = `+${curr_lat.toFixed(6)},+${curr_lng.toFixed(6)}`;
                         const odo_str = `${total_odo.toFixed(6)}-${today_odo.toFixed(6)}`;
                         
-                        last_payload = `##,${imei},0,${time_str},${coord_str},${config.speed},45.0,0,1,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,28,3950,0,1-1-0-1-1,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
+                        last_payload = `##,${imei},0,${time_str},${coord_str},${config.speed},26.5,0,1,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,28,3950,0,1-1-0-1-1,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
                         client.publish(topic, last_payload);
                         await new Promise(r => setTimeout(r, 5));
                     }
@@ -358,7 +358,7 @@ class SpooferEngine {
                             
                             // Send live timestamps with Speed=0 so the server marks it as Idle/Halt permanently
                             const new_time_str = this.formatDateStr(new Date());
-                            const shield_payload = `##,${imei},0,${new_time_str},${shield_coord_str},0,45.0,0,1,91.26,${shield_odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,28,3950,0,1-1-0-1-1,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
+                            const shield_payload = `##,${imei},0,${new_time_str},${shield_coord_str},0,26.5,0,1,91.26,${shield_odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,28,3950,0,1-1-0-1-1,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
                             
                             client.publish(topic, shield_payload);
                             loops_done++;
