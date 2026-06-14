@@ -1,5 +1,6 @@
 const mqtt = require('mqtt');
 const axios = require('axios');
+const fs = require('fs');
 
 class SpooferEngine {
     constructor() {
@@ -42,6 +43,31 @@ class SpooferEngine {
             return true;
         }
         return false;
+    }
+    
+    save_history(imei, mode, added_km, start_odo, final_odo, target_hours, shield_hours) {
+        try {
+            const HISTORY_FILE = 'history.json';
+            let history = [];
+            if (fs.existsSync(HISTORY_FILE)) {
+                history = JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8'));
+            }
+            const istTime = new Date(Date.now() + (330 * 60000));
+            history.unshift({
+                timestamp: istTime.toISOString().replace('T', ' ').substring(0, 19),
+                imei,
+                mode,
+                added_km: added_km.toFixed(2),
+                start_odo: start_odo.toFixed(2),
+                final_odo: final_odo.toFixed(2),
+                target_hours,
+                shield_hours
+            });
+            if (history.length > 500) history = history.slice(0, 500); // keep last 500
+            fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 4));
+        } catch (e) {
+            console.error("Failed to save history", e);
+        }
     }
     
     async fetch_live_data_instant(imei, target_date = null) {
@@ -244,6 +270,8 @@ class SpooferEngine {
                         }
                     }
                     
+                    const initial_odo = total_odo;
+                    
                     for (let i = 0; i < broadcasts_per_day; i++) {
                         if (this.kill_all_drives) break;
                         
@@ -261,6 +289,7 @@ class SpooferEngine {
                     }
                     
                     this.log(`[${imei}] Finished Ghost Drive.`);
+                    this.save_history(imei, "drive", total_odo - initial_odo, initial_odo, total_odo, config.target_hours, config.shield_hours || 0);
                     client.end();
                     resolve();
                     
@@ -302,6 +331,7 @@ class SpooferEngine {
                         }
                     }
                     
+                    const initial_odo = total_odo;
                     let last_payload = "";
                     
                     for (let i = 0; i < broadcasts_per_day; i++) {
@@ -333,6 +363,7 @@ class SpooferEngine {
                     }
                     
                     this.log(`[${imei}] Finished Ghost Drive.`);
+                    this.save_history(imei, "drive_km", total_odo - initial_odo, initial_odo, total_odo, config.target_hours, config.shield_hours || 0);
                     
                     // SHIELD MODE for Node.js
                     if (config.shield_hours > 0 && !config.history_date) {

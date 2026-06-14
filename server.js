@@ -6,6 +6,7 @@ const engine = require('./spoofer');
 const app = express();
 const port = 5001;
 const SCHEDULED_FILE = 'scheduled_jobs.json';
+const HISTORY_FILE = 'history.json';
 
 app.use(cors());
 app.use(express.json());
@@ -116,12 +117,20 @@ app.post('/api/fetch_odo', async (req, res) => {
 });
 
 app.get('/api/status', (req, res) => {
+    let history = [];
+    try {
+        if (fs.existsSync(HISTORY_FILE)) {
+            history = JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8'));
+        }
+    } catch(e) {}
+    
     res.json({
         is_running: engine.is_running,
         mode: engine.mode,
         logs: engine.get_logs(),
         scheduled_jobs: loadScheduledJobs(),
-        active_shields: engine.get_active_shields()
+        active_shields: engine.get_active_shields(),
+        history: history
     });
 });
 
@@ -141,6 +150,28 @@ app.post('/api/cancel_shield', (req, res) => {
     const { imei } = req.body;
     const success = engine.cancel_shield(imei);
     res.json({ success: success, message: success ? `Shield for ${imei} cancelled.` : 'Shield not found.' });
+});
+
+app.get('/api/history', (req, res) => {
+    try {
+        if (fs.existsSync(HISTORY_FILE)) {
+            const data = fs.readFileSync(HISTORY_FILE, 'utf8');
+            res.json(JSON.parse(data));
+        } else {
+            res.json([]);
+        }
+    } catch (e) {
+        res.json([]);
+    }
+});
+
+app.delete('/api/history', (req, res) => {
+    try {
+        fs.writeFileSync(HISTORY_FILE, JSON.stringify([]));
+        res.json({ success: true, message: 'History cleared.' });
+    } catch (e) {
+        res.json({ success: false, message: 'Failed to clear history.' });
+    }
 });
 
 app.listen(port, () => {

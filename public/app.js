@@ -171,6 +171,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 shieldsList.innerHTML = "No active shields.";
             }
             
+            // Render History
+            const historyBody = document.getElementById('history-table-body');
+            if (data.history && data.history.length > 0) {
+                historyBody.innerHTML = data.history.map(h => `
+                    <tr style="border-bottom: 1px solid #333;">
+                        <td style="padding: 8px;">${h.timestamp}</td>
+                        <td style="padding: 8px; color: #00bcd4; font-weight: bold;">${h.imei}</td>
+                        <td style="padding: 8px;">${h.mode === 'drive_km' ? '🚗 KM' : '👻 Hours'}</td>
+                        <td style="padding: 8px; color: #4caf50;">+${h.added_km}</td>
+                        <td style="padding: 8px;">${h.final_odo}</td>
+                        <td style="padding: 8px;">${h.target_hours}</td>
+                        <td style="padding: 8px;">${h.shield_hours}</td>
+                    </tr>
+                `).join('');
+            } else {
+                historyBody.innerHTML = `<tr><td colspan="7" style="padding: 8px; text-align: center;">No history available.</td></tr>`;
+            }
+            
+            
         } catch (e) {
             console.error("Failed to poll status", e);
         }
@@ -312,6 +331,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Removed global Stop button logic as user prefers canceling individual tasks
+    
+    // Clear history
+    const btnClearHistory = document.getElementById('btn-clear-history');
+    if (btnClearHistory) {
+        btnClearHistory.addEventListener('click', async () => {
+            if (!confirm("Are you sure you want to permanently clear the entire spoofing history?")) return;
+            try {
+                const res = await fetch('/api/history', { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) {
+                    pollStatus();
+                } else {
+                    alert(data.message);
+                }
+            } catch (e) {
+                alert("Error clearing history.");
+            }
+        });
+    }
     
     pollStatus();
 });

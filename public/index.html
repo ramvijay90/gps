@@ -141,6 +141,32 @@
                     </div>
                 </div>
             </div>
+            <div class="card tasks-panel" style="margin-top: 1rem;">
+                <div class="log-header">
+                    <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+                        <h2>Spoofing History Log</h2>
+                        <button id="btn-clear-history" class="btn btn-secondary" style="padding: 5px 10px; font-size: 0.8rem; background-color: #f44336; border: none;">Clear History</button>
+                    </div>
+                </div>
+                <div style="overflow-x: auto; margin-top: 10px;">
+                    <table style="width: 100%; text-align: left; border-collapse: collapse; font-size: 0.9rem;">
+                        <thead>
+                            <tr style="border-bottom: 1px solid #444;">
+                                <th style="padding: 8px;">Date/Time</th>
+                                <th style="padding: 8px;">Vehicle</th>
+                                <th style="padding: 8px;">Mode</th>
+                                <th style="padding: 8px;">Added KM</th>
+                                <th style="padding: 8px;">Final ODO</th>
+                                <th style="padding: 8px;">Target Hrs</th>
+                                <th style="padding: 8px;">Shield Hrs</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-table-body" style="color: #aaa;">
+                            <tr><td colspan="7" style="padding: 8px; text-align: center;">Loading history...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </main>
     </div>
 
