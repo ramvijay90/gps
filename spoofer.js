@@ -262,11 +262,17 @@ class SpooferEngine {
                     let total_odo = config.start_odo || 0.0;
                     let today_odo = config.start_today_odo || 0.0;
                     
-                    if (total_odo === 0.0) {
+                    if (total_odo === 0.0 || !config.lat || !config.lng) {
                         const fetch_result = await this.fetch_live_data_instant(imei, config.history_date);
                         if (fetch_result.success) {
-                            total_odo = fetch_result.odo || 0.0;
-                            today_odo = fetch_result.today_odo || 0.0;
+                            if (total_odo === 0.0) {
+                                total_odo = fetch_result.odo || 0.0;
+                                today_odo = fetch_result.today_odo || 0.0;
+                            }
+                            if (!config.lat || !config.lng) {
+                                config.lat = fetch_result.lat || 0;
+                                config.lng = fetch_result.lng || 0;
+                            }
                         }
                     }
                     
@@ -282,8 +288,9 @@ class SpooferEngine {
                         total_odo += dist_km;
                         today_odo += dist_km;
                         const odo_str = `${total_odo.toFixed(6)}-${today_odo.toFixed(6)}`;
+                        const coord_str = `+${parseFloat(config.lat).toFixed(6)},+${parseFloat(config.lng).toFixed(6)}`;
                         
-                        const payload = `##,${imei},0,${time_str},,,${config.speed},26.5,0,1,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,28,3950,0,0-1-0-1-1,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
+                        const payload = `##,${imei},0,${time_str},${coord_str},${config.speed},26.5,0,1,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,28,3950,0,0-1-0-1-1,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
                         client.publish(topic, payload);
                         await new Promise(r => setTimeout(r, 5)); // 5ms sleep
                     }
@@ -319,11 +326,17 @@ class SpooferEngine {
                     let total_odo = config.start_odo || 0.0;
                     let today_odo = config.start_today_odo || 0.0;
                     
-                    if (total_odo === 0.0) {
+                    if (total_odo === 0.0 || !config.lat || !config.lng) {
                         const fetch_result = await this.fetch_live_data_instant(imei, config.history_date);
                         if (fetch_result.success) {
-                            total_odo = fetch_result.odo || 0.0;
-                            today_odo = fetch_result.today_odo || 0.0;
+                            if (total_odo === 0.0) {
+                                total_odo = fetch_result.odo || 0.0;
+                                today_odo = fetch_result.today_odo || 0.0;
+                            }
+                            if (!config.lat || !config.lng) {
+                                config.lat = fetch_result.lat || 0;
+                                config.lng = fetch_result.lng || 0;
+                            }
                         }
                     }
                     
@@ -341,8 +354,9 @@ class SpooferEngine {
                         today_odo += dist_km;
                         
                         const odo_str = `${total_odo.toFixed(6)}-${today_odo.toFixed(6)}`;
+                        const coord_str = `+${parseFloat(config.lat).toFixed(6)},+${parseFloat(config.lng).toFixed(6)}`;
                         
-                        last_payload = `##,${imei},0,${time_str},,,${config.speed},26.5,0,1,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,28,3950,0,1-1-0-1-1,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
+                        last_payload = `##,${imei},0,${time_str},${coord_str},${config.speed},26.5,0,1,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,28,3950,0,1-1-0-1-1,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
                         client.publish(topic, last_payload);
                         await new Promise(r => setTimeout(r, 5));
                     }
@@ -373,7 +387,8 @@ class SpooferEngine {
                             
                             // Send live timestamps with Speed=0 so the server marks it as Idle/Halt permanently
                             const new_time_str = this.formatDateStr(new Date());
-                            const shield_payload = `##,${imei},0,${new_time_str},,,0,26.5,0,1,91.26,${shield_odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,28,3950,0,1-1-0-1-1,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
+                            const coord_str = `+${parseFloat(config.lat).toFixed(6)},+${parseFloat(config.lng).toFixed(6)}`;
+                            const shield_payload = `##,${imei},0,${new_time_str},${coord_str},0,26.5,0,1,91.26,${shield_odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,28,3950,0,1-1-0-1-1,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
                             
                             client.publish(topic, shield_payload);
                             loops_done++;
