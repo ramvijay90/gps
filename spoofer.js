@@ -342,6 +342,9 @@ class SpooferEngine {
                     
                     const initial_odo = total_odo;
                     let last_payload = "";
+                    let curr_lat = config.lat;
+                    let curr_lng = config.lng;
+                    let toggle_position = false;
                     
                     for (let i = 0; i < broadcasts_per_day; i++) {
                         if (this.kill_all_drives) break;
@@ -353,8 +356,18 @@ class SpooferEngine {
                         total_odo += dist_km;
                         today_odo += dist_km;
                         
+                        if (toggle_position) {
+                            const next_pos = this._calculate_next_position(config.lat, config.lng, distance_m_per_tick, 0);
+                            curr_lat = next_pos.lat;
+                            curr_lng = next_pos.lng;
+                        } else {
+                            curr_lat = config.lat;
+                            curr_lng = config.lng;
+                        }
+                        toggle_position = !toggle_position;
+                        
                         const odo_str = `${total_odo.toFixed(6)}-${today_odo.toFixed(6)}`;
-                        const coord_str = `+${parseFloat(config.lat).toFixed(6)},+${parseFloat(config.lng).toFixed(6)}`;
+                        const coord_str = `+${parseFloat(curr_lat).toFixed(6)},+${parseFloat(curr_lng).toFixed(6)}`;
                         
                         last_payload = `##,${imei},0,${time_str},${coord_str},${config.speed},26.5,0,1,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,28,3950,0,1-1-0-1-1,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
                         client.publish(topic, last_payload);
@@ -385,12 +398,14 @@ class SpooferEngine {
                                 return;
                             }
                             
-                            // Send live timestamps with Speed=0 so the server marks it as Idle/Halt permanently
+                            // Send live timestamps but keep the exact last_payload (so Speed and Ignition stay exactly as they were)
                             const new_time_str = this.formatDateStr(new Date());
-                            const coord_str = `+${parseFloat(config.lat).toFixed(6)},+${parseFloat(config.lng).toFixed(6)}`;
-                            const shield_payload = `##,${imei},0,${new_time_str},${coord_str},0,26.5,0,1,91.26,${shield_odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,28,3950,0,1-1-0-1-1,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
-                            
-                            client.publish(topic, shield_payload);
+                            let parts = last_payload.split(",");
+                            if (parts.length > 4) {
+                                parts[3] = new_time_str;
+                                const shield_payload = parts.join(",");
+                                client.publish(topic, shield_payload);
+                            }
                             loops_done++;
                         }, 3000); // 3 seconds
                         
