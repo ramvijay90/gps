@@ -316,10 +316,6 @@ class SpooferEngine {
                     
                     this.log(`[${imei}] Injecting ${config.target_hours} hrs [Ghost Drive (KM)]...`);
                     
-                    let curr_lat = config.lat;
-                    let curr_lng = config.lng;
-                    let toggle_position = false;
-                    
                     let total_odo = config.start_odo || 0.0;
                     let today_odo = config.start_today_odo || 0.0;
                     
@@ -344,20 +340,9 @@ class SpooferEngine {
                         total_odo += dist_km;
                         today_odo += dist_km;
                         
-                        if (toggle_position) {
-                            const next_pos = this._calculate_next_position(config.lat, config.lng, distance_m_per_tick, 0);
-                            curr_lat = next_pos.lat;
-                            curr_lng = next_pos.lng;
-                        } else {
-                            curr_lat = config.lat;
-                            curr_lng = config.lng;
-                        }
-                        toggle_position = !toggle_position;
-                        
-                        const coord_str = `+${curr_lat.toFixed(6)},+${curr_lng.toFixed(6)}`;
                         const odo_str = `${total_odo.toFixed(6)}-${today_odo.toFixed(6)}`;
                         
-                        last_payload = `##,${imei},0,${time_str},${coord_str},${config.speed},26.5,0,1,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,28,3950,0,1-1-0-1-1,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
+                        last_payload = `##,${imei},0,${time_str},,,${config.speed},26.5,0,1,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,28,3950,0,1-1-0-1-1,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
                         client.publish(topic, last_payload);
                         await new Promise(r => setTimeout(r, 5));
                     }
@@ -372,7 +357,6 @@ class SpooferEngine {
                         const shield_loops = Math.floor((config.shield_hours * 3600) / 3);
                         let loops_done = 0;
                         
-                        const shield_coord_str = `+${curr_lat.toFixed(6)},+${curr_lng.toFixed(6)}`;
                         const shield_odo_str = `${total_odo.toFixed(6)}-${today_odo.toFixed(6)}`;
                         
                         // We use setInterval for the shield so it runs asynchronously
@@ -389,7 +373,7 @@ class SpooferEngine {
                             
                             // Send live timestamps with Speed=0 so the server marks it as Idle/Halt permanently
                             const new_time_str = this.formatDateStr(new Date());
-                            const shield_payload = `##,${imei},0,${new_time_str},${shield_coord_str},0,26.5,0,1,91.26,${shield_odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,28,3950,0,1-1-0-1-1,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
+                            const shield_payload = `##,${imei},0,${new_time_str},,,0,26.5,0,1,91.26,${shield_odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,28,3950,0,1-1-0-1-1,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
                             
                             client.publish(topic, shield_payload);
                             loops_done++;
