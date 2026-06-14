@@ -615,7 +615,7 @@
         "sim": "5754181966215",
         "model": "",
         "type": "Sand Sweeper",
-        "voltage": 0.0
+        "voltage": 25.0
     },
     {
         "vehicle_no": "TN 45 CA 3022 RIG",
@@ -623,7 +623,7 @@
         "sim": "5754181966220",
         "model": "",
         "type": "Sand Sweeper",
-        "voltage": 0.0
+        "voltage": 25.0
     },
     {
         "vehicle_no": "TN 45 CB 1352 RIG",
