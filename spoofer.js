@@ -2,6 +2,13 @@ const mqtt = require('mqtt');
 const axios = require('axios');
 const fs = require('fs');
 
+const fs = require(\'fs\');
+const path = require(\'path\');
+let vehicle_db = [];
+try {
+    vehicle_db = JSON.parse(fs.readFileSync(path.join(__dirname, \'vehicles.json\'), \'utf8\'));
+} catch(e) {}
+
 class SpooferEngine {
     constructor() {
         this.active_shields_list = {}; // { imei: { expiry_time, cancel, interval, client } }
@@ -194,6 +201,12 @@ class SpooferEngine {
     }
     
     async _process_vehicle(imei, config) {
+        let v_voltage = 25;
+        const matched = vehicle_db.find(v => v.imei === imei);
+        if (matched && matched.voltage) {
+            v_voltage = Math.round(parseFloat(matched.voltage));
+        }
+
         return new Promise(async (resolve) => {
             // Pre-register shield if applicable to show in UI immediately
             let is_cancelled = false;
@@ -290,7 +303,7 @@ class SpooferEngine {
                         const odo_str = `${total_odo.toFixed(6)}-${today_odo.toFixed(6)}`;
                         const coord_str = `+${parseFloat(config.lat).toFixed(6)},+${parseFloat(config.lng).toFixed(6)}`;
                         
-                        const payload = `##,${imei},0,${time_str},${coord_str},${config.speed},26.5,0,1,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,28,3950,0,0-1-0-1-1,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
+                        const payload = `##,${imei},0,${time_str},${coord_str},${config.speed},26.5,0,1,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,,3950,0,0-1-0-1-1,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
                         client.publish(topic, payload);
                         await new Promise(r => setTimeout(r, 5)); // 5ms sleep
                     }
@@ -371,7 +384,7 @@ class SpooferEngine {
                         const odo_str = `${total_odo.toFixed(6)}-${today_odo.toFixed(6)}`;
                         const coord_str = `+${parseFloat(curr_lat).toFixed(6)},+${parseFloat(curr_lng).toFixed(6)}`;
                         
-                        last_payload = `##,${imei},0,${time_str},${coord_str},${config.speed},26.5,0,1,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,28,3950,0,0-1-0-1-1,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
+                        last_payload = `##,${imei},0,${time_str},${coord_str},${config.speed},26.5,0,1,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,,3950,0,0-1-0-1-1,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
                         client.publish(topic, last_payload);
                         await new Promise(r => setTimeout(r, 5));
                     }
@@ -431,7 +444,7 @@ class SpooferEngine {
                             return;
                         }
                         const current_time = this.formatDateStr(new Date());
-                        const payload = `##,${imei},0,${current_time},+${config.lat.toFixed(6)},+${config.lng.toFixed(6)},0,0.0,0,1,100.0,0-0,0-0,0-0,0-0,+0.0,0,0-0-0-0,2000-00-00 00:00:00,2000-00-00 00:00:00,25,4000,0,1-0-0-0-0,0,0,0-0,0,0,0,1,0-0,4000,1,0,0,0,00000-00,$`;
+                        const payload = `##,${imei},0,${current_time},+${config.lat.toFixed(6)},+${config.lng.toFixed(6)},0,0.0,0,1,100.0,0-0,0-0,0-0,0-0,+0.0,0,0-0-0-0,2000-00-00 00:00:00,2000-00-00 00:00:00,,4000,0,1-0-0-0-0,0,0,0-0,0,0,0,1,0-0,4000,1,0,0,0,00000-00,$`;
                         client.publish(topic, payload);
                     }, 5000);
                     resolve();
