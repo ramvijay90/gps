@@ -312,7 +312,9 @@ class SpooferEngine {
                         start_date = new Date();
                         start_date.setUTCHours(18, 29, 50, 0);
                     } else {
+                        // Push ALL manual injections to 11:59:50 PM IST to instantly lock the KM from hardware overwrites!
                         start_date = new Date();
+                        start_date.setUTCHours(18, 29, 50, 0);
                     }
                     
                     start_date = new Date(start_date.getTime() - (config.target_hours * 3600000));
