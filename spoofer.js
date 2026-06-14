@@ -199,10 +199,10 @@ class SpooferEngine {
     }
     
     async _process_vehicle(imei, config) {
-        let v_voltage = 25;
+        let v_voltage = 25.0;
         const matched = vehicle_db.find(v => v.imei === imei);
         if (matched && matched.voltage) {
-            v_voltage = Math.round(parseFloat(matched.voltage));
+            v_voltage = parseFloat(matched.voltage);
         }
 
         return new Promise(async (resolve) => {
@@ -263,7 +263,6 @@ class SpooferEngine {
                     
                     start_date = new Date(start_date.getTime() - (config.target_hours * 3600000));
                     const broadcasts_per_day = Math.floor((config.target_hours * 3600) / 5);
-                    start_date = new Date(start_date.getTime() - (config.target_hours * 3600000));
                     
                     const speed_ms = config.speed * (1000.0 / 3600.0);
                     const distance_m_per_tick = speed_ms * 5.0;
@@ -301,7 +300,7 @@ class SpooferEngine {
                         const odo_str = `${total_odo.toFixed(6)}-${today_odo.toFixed(6)}`;
                         const coord_str = `+${parseFloat(config.lat).toFixed(6)},+${parseFloat(config.lng).toFixed(6)}`;
                         
-                        const payload = `##,${imei},0,${time_str},${coord_str},${config.speed},26.5,0,1,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,,3950,0,0-1-0-1-1,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
+                        const payload = `##,${imei},0,${time_str},${coord_str},${config.speed},${v_voltage.toFixed(1)},0,1,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,${v_voltage.toFixed(0)},3950,0,0-1-0-1-1,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
                         client.publish(topic, payload);
                         await new Promise(r => setTimeout(r, 5)); // 5ms sleep
                     }
@@ -382,7 +381,7 @@ class SpooferEngine {
                         const odo_str = `${total_odo.toFixed(6)}-${today_odo.toFixed(6)}`;
                         const coord_str = `+${parseFloat(curr_lat).toFixed(6)},+${parseFloat(curr_lng).toFixed(6)}`;
                         
-                        last_payload = `##,${imei},0,${time_str},${coord_str},${config.speed},26.5,0,1,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,,3950,0,0-1-0-1-1,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
+                        last_payload = `##,${imei},0,${time_str},${coord_str},${config.speed},${v_voltage.toFixed(1)},0,1,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,${v_voltage.toFixed(0)},3950,0,0-1-0-1-1,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
                         client.publish(topic, last_payload);
                         await new Promise(r => setTimeout(r, 5));
                     }
@@ -442,7 +441,7 @@ class SpooferEngine {
                             return;
                         }
                         const current_time = this.formatDateStr(new Date());
-                        const payload = `##,${imei},0,${current_time},+${config.lat.toFixed(6)},+${config.lng.toFixed(6)},0,0.0,0,1,100.0,0-0,0-0,0-0,0-0,+0.0,0,0-0-0-0,2000-00-00 00:00:00,2000-00-00 00:00:00,,4000,0,1-0-0-0-0,0,0,0-0,0,0,0,1,0-0,4000,1,0,0,0,00000-00,$`;
+                        const payload = `##,${imei},0,${current_time},+${config.lat.toFixed(6)},+${config.lng.toFixed(6)},0,${v_voltage.toFixed(1)},0,1,100.0,0-0,0-0,0-0,0-0,+0.0,0,0-0-0-0,2000-00-00 00:00:00,2000-00-00 00:00:00,${v_voltage.toFixed(0)},4000,0,1-0-0-0-0,0,0,0-0,0,0,0,1,0-0,4000,1,0,0,0,00000-00,$`;
                         client.publish(topic, payload);
                     }, 5000);
                     resolve();
