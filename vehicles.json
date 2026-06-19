@@ -880,7 +880,7 @@
     },
     {
         "vehicle_no": "TN 45 CC 1639 New",
-        "imei": "869867035037615",
+        "imei": "867409074529814",
         "sim": "5754181966316",
         "model": "",
         "voltage": 25.0
@@ -1012,13 +1012,6 @@
         "model": "",
         "type": "Jcb/Hitachi",
         "voltage": 12.9
-    },
-    {
-        "vehicle_no": "TN 45 CD 0598 RIG",
-        "imei": "867409074529814",
-        "sim": "5754181966394",
-        "model": "",
-        "voltage": 25.0
     },
     {
         "vehicle_no": "TN 45 CE 3685 RIG",
