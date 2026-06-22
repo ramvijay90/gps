@@ -300,7 +300,7 @@ class SpooferEngine {
                         const odo_str = `${total_odo.toFixed(6)}-${today_odo.toFixed(6)}`;
                         const coord_str = `+${parseFloat(config.lat).toFixed(6)},+${parseFloat(config.lng).toFixed(6)}`;
                         
-                        const payload = `##,${imei},0,${time_str},${coord_str},0,${v_voltage.toFixed(1)},0,1,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,${v_voltage.toFixed(0)},3950,0,0-1-0-1-1,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
+                        const payload = `##,${imei},0,${time_str},${coord_str},0,${v_voltage.toFixed(1)},0,1,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,0-0-0-0,2000-00-00 00:00:00,2000-00-00 00:00:00,${v_voltage.toFixed(0)},3950,0,1-0-0-0-0,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
                         client.publish(topic, payload);
                         await new Promise(r => setTimeout(r, 5)); // 5ms sleep
                     }
@@ -381,7 +381,7 @@ class SpooferEngine {
                         const odo_str = `${total_odo.toFixed(6)}-${today_odo.toFixed(6)}`;
                         const coord_str = `+${parseFloat(curr_lat).toFixed(6)},+${parseFloat(curr_lng).toFixed(6)}`;
                         
-                        last_payload = `##,${imei},0,${time_str},${coord_str},0,${v_voltage.toFixed(1)},0,1,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,${v_voltage.toFixed(0)},3950,0,0-1-0-1-1,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
+                        last_payload = `##,${imei},0,${time_str},${coord_str},0,${v_voltage.toFixed(1)},0,1,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,0-0-0-0,2000-00-00 00:00:00,2000-00-00 00:00:00,${v_voltage.toFixed(0)},3950,0,1-0-0-0-0,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
                         client.publish(topic, last_payload);
                         await new Promise(r => setTimeout(r, 5));
                     }
