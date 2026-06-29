@@ -107,26 +107,17 @@ class SpooferEngine {
                 const lat = parseFloat(last_record.lat || 0);
                 const lng = parseFloat(last_record.lng || 0);
                 const totel_km = last_record.totel_km || "";
-                const pack_count = last_record.pack_count ? parseInt(last_record.pack_count) : null;
-                const battery = last_record.battery ? parseFloat(last_record.battery).toFixed(1) : null;
-                const overspeed = last_record.overspeed || null;
-                const jcb_ac = last_record.jcb_ac || null;
                 
                 let odo = 0.0, today_odo = 0.0;
-                let decimals = 3; // default
                 if (totel_km.includes("-")) {
                     const parts = totel_km.split("-");
                     odo = parseFloat(parts[0]);
                     today_odo = parseFloat(parts[1]);
-                    const match = parts[0].match(/\.(\d+)/);
-                    if (match) decimals = match[1].length;
                 } else if (totel_km) {
                     odo = parseFloat(totel_km);
-                    const match = totel_km.match(/\.(\d+)/);
-                    if (match) decimals = match[1].length;
                 }
                 
-                return { success: true, lat, lng, odo, today_odo, pack_count, battery, overspeed, jcb_ac, decimals };
+                return { success: true, lat, lng, odo, today_odo };
             }
             return { success: false, error: "No historical data found" };
         } catch (error) {
@@ -255,22 +246,6 @@ class SpooferEngine {
             client.on('connect', async () => {
                 const topic = `BB/${imei}`;
                 
-                // Fetch the live database state to extract device characteristics (pack_count, battery, overspeed, jcb_ac, decimals)
-                const fetch_result = await this.fetch_live_data_instant(imei, config.history_date);
-                
-                let start_pc = 2782;
-                let device_decimals = 6;
-                let v_overspeed = "0-0";
-                let v_jcb = "0-0-0-0";
-                
-                if (fetch_result.success) {
-                    if (fetch_result.pack_count) start_pc = fetch_result.pack_count + 1;
-                    if (fetch_result.decimals !== undefined) device_decimals = fetch_result.decimals;
-                    if (fetch_result.battery) v_voltage = parseFloat(fetch_result.battery);
-                    if (fetch_result.overspeed) v_overspeed = fetch_result.overspeed;
-                    if (fetch_result.jcb_ac) v_jcb = fetch_result.jcb_ac;
-                }
-                
                 if (config.mode === "drive") {
                     let start_date;
                     if (config.history_date) {
@@ -297,17 +272,21 @@ class SpooferEngine {
                     let total_odo = config.start_odo || 0.0;
                     let today_odo = config.start_today_odo || 0.0;
                     
-                    if (total_odo === 0.0 && fetch_result.success) {
-                        total_odo = fetch_result.odo || 0.0;
-                        today_odo = fetch_result.today_odo || 0.0;
-                    }
-                    if ((!config.lat || !config.lng) && fetch_result.success) {
-                        config.lat = fetch_result.lat || 0;
-                        config.lng = fetch_result.lng || 0;
+                    if (total_odo === 0.0 || !config.lat || !config.lng) {
+                        const fetch_result = await this.fetch_live_data_instant(imei, config.history_date);
+                        if (fetch_result.success) {
+                            if (total_odo === 0.0) {
+                                total_odo = fetch_result.odo || 0.0;
+                                today_odo = fetch_result.today_odo || 0.0;
+                            }
+                            if (!config.lat || !config.lng) {
+                                config.lat = fetch_result.lat || 0;
+                                config.lng = fetch_result.lng || 0;
+                            }
+                        }
                     }
                     
                     const initial_odo = total_odo;
-                    let curr_pack_count = start_pc;
                     
                     for (let i = 0; i < broadcasts_per_day; i++) {
                         if (this.kill_all_drives) break;
@@ -318,25 +297,24 @@ class SpooferEngine {
                         const dist_km = distance_m_per_tick / 1000.0;
                         total_odo += dist_km;
                         today_odo += dist_km;
-                        const odo_str = `${total_odo.toFixed(device_decimals)}-${today_odo.toFixed(device_decimals)}`;
+                        const odo_str = `${total_odo.toFixed(6)}-${today_odo.toFixed(6)}`;
                         const coord_str = `+${parseFloat(config.lat).toFixed(6)},+${parseFloat(config.lng).toFixed(6)}`;
                         
-                        const payload = `##,${imei},0,${time_str},${coord_str},${config.speed},${v_voltage.toFixed(1)},0,1,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,${v_voltage.toFixed(0)},3950,0,0-1-0-1-1,0,0,0-0,0,0,${curr_pack_count},1,0-26,3950,1,0,0,0,00000-00,$`;
+                        const payload = `##,${imei},0,${time_str},${coord_str},${config.speed},${v_voltage.toFixed(1)},0,1,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,${v_voltage.toFixed(0)},3950,0,0-1-0-1-1,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
                         client.publish(topic, payload);
-                        curr_pack_count++;
                         await new Promise(r => setTimeout(r, 5)); // 5ms sleep
                     }
                     
                     // Send final Ignition OFF packet exactly 1 second after the last driving packet
                     const final_time = new Date(start_date.getTime() + (broadcasts_per_day * 5000) + 1000);
                     const final_time_str = this.formatDateStr(final_time);
-                    const final_odo_str = `${total_odo.toFixed(device_decimals)}-${today_odo.toFixed(device_decimals)}`;
+                    const final_odo_str = `${total_odo.toFixed(6)}-${today_odo.toFixed(6)}`;
                     const final_coord_str = `+${parseFloat(config.lat).toFixed(6)},+${parseFloat(config.lng).toFixed(6)}`;
                     // speed=0, ignition=0 (1-0-0-0-0)
-                    const end_payload = `##,${imei},0,${final_time_str},${final_coord_str},0,${v_voltage.toFixed(1)},0,0,91.26,${final_odo_str},0-0,0-0,0-0,+0.0,0,0-0-0-0,2000-00-00 00:00:00,2000-00-00 00:00:00,${v_voltage.toFixed(0)},3950,0,1-0-0-0-0,0,0,0-0,0,0,${curr_pack_count},1,0-26,3950,1,0,0,0,00000-00,$`;
+                    const end_payload = `##,${imei},0,${final_time_str},${final_coord_str},0,${v_voltage.toFixed(1)},0,0,91.26,${final_odo_str},0-0,0-0,0-0,+0.0,0,0-0-0-0,2000-00-00 00:00:00,2000-00-00 00:00:00,${v_voltage.toFixed(0)},3950,0,1-0-0-0-0,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
                     client.publish(topic, end_payload);
                     
-                    this.log(`[${imei}] Sent final Ignition OFF packet (${curr_pack_count}). Finished Ghost Drive.`);
+                    this.log(`[${imei}] Sent final Ignition OFF packet. Finished Ghost Drive.`);
                     this.save_history(imei, "drive", total_odo - initial_odo, initial_odo, total_odo, config.target_hours, config.shield_hours || 0);
                     client.end();
                     resolve();
@@ -369,13 +347,18 @@ class SpooferEngine {
                     let total_odo = config.start_odo || 0.0;
                     let today_odo = config.start_today_odo || 0.0;
                     
-                    if (total_odo === 0.0 && fetch_result.success) {
-                        total_odo = fetch_result.odo || 0.0;
-                        today_odo = fetch_result.today_odo || 0.0;
-                    }
-                    if ((!config.lat || !config.lng) && fetch_result.success) {
-                        config.lat = fetch_result.lat || 0;
-                        config.lng = fetch_result.lng || 0;
+                    if (total_odo === 0.0 || !config.lat || !config.lng) {
+                        const fetch_result = await this.fetch_live_data_instant(imei, config.history_date);
+                        if (fetch_result.success) {
+                            if (total_odo === 0.0) {
+                                total_odo = fetch_result.odo || 0.0;
+                                today_odo = fetch_result.today_odo || 0.0;
+                            }
+                            if (!config.lat || !config.lng) {
+                                config.lat = fetch_result.lat || 0;
+                                config.lng = fetch_result.lng || 0;
+                            }
+                        }
                     }
                     
                     const initial_odo = total_odo;
@@ -383,7 +366,6 @@ class SpooferEngine {
                     let curr_lat = config.lat;
                     let curr_lng = config.lng;
                     let toggle_position = false;
-                    let curr_pack_count = start_pc;
                     
                     for (let i = 0; i < broadcasts_per_day; i++) {
                         if (this.kill_all_drives) break;
@@ -405,16 +387,15 @@ class SpooferEngine {
                         }
                         toggle_position = !toggle_position;
                         
-                        const odo_str = `${total_odo.toFixed(device_decimals)}-${today_odo.toFixed(device_decimals)}`;
+                        const odo_str = `${total_odo.toFixed(6)}-${today_odo.toFixed(6)}`;
                         const coord_str = `+${parseFloat(curr_lat).toFixed(6)},+${parseFloat(curr_lng).toFixed(6)}`;
                         
-                        last_payload = `##,${imei},0,${time_str},${coord_str},0,${v_voltage.toFixed(1)},0,0,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,0-0-0-0,2000-00-00 00:00:00,2000-00-00 00:00:00,${v_voltage.toFixed(0)},3950,0,1-0-0-0-0,0,0,0-0,0,0,${curr_pack_count},1,0-26,3950,1,0,0,0,00000-00,$`;
+                        last_payload = `##,${imei},0,${time_str},${coord_str},0,${v_voltage.toFixed(1)},0,0,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,0-0-0-0,2000-00-00 00:00:00,2000-00-00 00:00:00,${v_voltage.toFixed(0)},3950,0,1-0-0-0-0,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
                         client.publish(topic, last_payload);
-                        curr_pack_count++;
                         await new Promise(r => setTimeout(r, 5));
                     }
                     
-                    this.log(`[${imei}] Finished Ghost Drive. Last PC: ${curr_pack_count}`);
+                    this.log(`[${imei}] Finished Ghost Drive.`);
                     this.save_history(imei, "drive_km", total_odo - initial_odo, initial_odo, total_odo, config.target_hours, config.shield_hours || 0);
                     
                     // SHIELD MODE for Node.js
