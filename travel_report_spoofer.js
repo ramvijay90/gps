@@ -1,20 +1,10 @@
 const mqtt = require('mqtt');
 const axios = require('axios');
 
-const imei = process.argv[2];
-const date_str = process.argv[3];
-const target_hours = parseFloat(process.argv[4] || "1.5");
-const speed = parseFloat(process.argv[5] || "30");
+async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, logCallback = console.log) {
+    const required_gap_seconds = target_hours * 3600;
 
-if (!imei || !date_str) {
-    console.error("Usage: node travel_report_spoofer.js <IMEI> <YYYY-MM-DD> [HOURS] [SPEED]");
-    process.exit(1);
-}
-
-const required_gap_seconds = target_hours * 3600;
-
-async function main() {
-    console.log(`[+] Finding a free time gap of at least ${target_hours} hours for IMEI ${imei} on ${date_str}...`);
+    logCallback(`[+] Finding a free time gap of at least ${target_hours} hours for IMEI ${imei} on ${date_str}...`);
 
     let history_data = [];
     try {
@@ -26,15 +16,16 @@ async function main() {
         params.append('action', 'history_web');
         
         const res = await axios.post('http://dev.igps.io/http.php', params.toString(), {
-            headers: {'Content-Type': 'application/x-www-form-urlencoded'}
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            timeout: 10000
         });
         
         if (Array.isArray(res.data) && res.data.length > 0) {
             history_data = res.data;
         }
     } catch (e) {
-        console.error("[-] Failed to fetch history:", e.message);
-        process.exit(1);
+        logCallback(`[-] Failed to fetch history: ${e.message}`);
+        throw e;
     }
     
     let gap_start = null;
@@ -107,85 +98,110 @@ async function main() {
         }
         
         if (!gap_start) {
-            console.error(`[-] Could not find any free time gap of ${target_hours} hours on ${date_str} even when scanning backwards!`);
-            process.exit(1);
+            const err_msg = `[-] Could not find any free time gap of ${target_hours} hours on ${date_str} even when scanning backwards!`;
+            logCallback(err_msg);
+            throw new Error(err_msg);
         }
     } else {
-        console.log("[!] No history found for this date. The whole day is free!");
+        logCallback("[!] No history found for this date. The whole day is free!");
         gap_start = new Date(date_str + "T08:00:00+05:30"); // Default 8 AM
         gap_end = new Date(date_str + "T23:59:59+05:30");
         base_lat = 10.822819; // Default fallback coord
         base_lng = 78.681126;
     }
     
-    console.log(`[+] Found Free Time Gap: ${gap_start.toLocaleString()} to ${gap_end.toLocaleString()}`);
+    logCallback(`[+] Found Free Time Gap: ${gap_start.toLocaleString()} to ${gap_end.toLocaleString()}`);
     
-    // Calculate injection start time (1 min after gap_start)
     const inject_start = new Date(gap_start.getTime() + 60000);
-    console.log(`[+] Will inject fake Travel Report trip starting exactly at: ${inject_start.toLocaleString()}`);
+    logCallback(`[+] Will inject fake Travel Report trip starting exactly at: ${inject_start.toLocaleString()}`);
     
-    const client = mqtt.connect("mqtt://igps.io:1883", {
-        username: "realiot",
-        password: "realmqtt@123",
-        clientId: `mqttjs_tr_${Math.random().toString(16).substr(2, 8)}`
-    });
+    return new Promise((resolve, reject) => {
+        const client = mqtt.connect("mqtt://igps.io:1883", {
+            username: "realiot",
+            password: "realmqtt@123",
+            clientId: `mqttjs_tr_${Math.random().toString(16).substr(2, 8)}`,
+            connectTimeout: 5000
+        });
 
-    client.on('connect', async () => {
-        console.log("[+] Connected to MQTT server.");
-        const topic = `BB/${imei}`;
-        
-        const broadcasts = Math.floor(required_gap_seconds / 5);
-        const speed_ms = speed * (1000.0 / 3600.0);
-        const dist_per_tick = (speed_ms * 5.0) / 1000.0;
-        
-        let curr_odo = start_odo;
-        let curr_today_odo = today_odo;
-        
-        for (let i = 0; i < broadcasts; i++) {
-            const curr_time = new Date(inject_start.getTime() + (i * 5000));
-            curr_odo += dist_per_tick;
-            curr_today_odo += dist_per_tick;
+        client.on('error', (err) => {
+            logCallback(`[-] MQTT Connection error: ${err.message}`);
+            reject(err);
+        });
+
+        client.on('connect', async () => {
+            logCallback("[+] Connected to MQTT server.");
+            const topic = `BB/${imei}`;
             
-            const time_str = curr_time.toISOString().replace('T', ' ').substring(0, 19);
+            const broadcasts = Math.floor(required_gap_seconds / 5);
+            const speed_ms = speed * (1000.0 / 3600.0);
+            const dist_per_tick = (speed_ms * 5.0) / 1000.0;
             
-            // Micro-Jitter (zero opacity map line). Alternates adding/subtracting 0.00001 (approx 1 meter)
-            let jitter = (i % 2 === 0) ? 0.00001 : -0.00001;
-            let lat = base_lat + jitter;
-            let lng = base_lng + jitter;
+            let curr_odo = start_odo;
+            let curr_today_odo = today_odo;
             
-            const coord_str = `+${lat.toFixed(6)},+${lng.toFixed(6)}`;
-            
-            // Format ODO to exactly 3 decimal places
-            const odo_str = `${curr_odo.toFixed(3)}-${curr_today_odo.toFixed(3)}`;
-            
-            // Speed > 0, Ignition ON (1)
-            const payload = `##,${imei},0,${time_str},${coord_str},${speed},${v_battery},0,1,91.26,${odo_str},${v_overspeed},0-0,0-0,+0.0,0,${v_jcb},2000-00-00 00:00:00,2000-00-00 00:00:00,12,3950,0,0-1-0-1-1,0,0,0-0,0,0,${curr_pack_count},1,0-26,3950,1,0,0,0,00000-00,$`;
-            
-            client.publish(topic, payload);
-            curr_pack_count++;
-            
-            await new Promise(r => setTimeout(r, 200)); 
-        }
-        
-        // Final IGNITION OFF packet exactly 1 second later
-        const final_time = new Date(inject_start.getTime() + (broadcasts * 5000) + 1000);
-        const final_time_str = final_time.toISOString().replace('T', ' ').substring(0, 19);
-        const final_odo_str = `${curr_odo.toFixed(3)}-${curr_today_odo.toFixed(3)}`;
-        const final_coord = `+${base_lat.toFixed(6)},+${base_lng.toFixed(6)}`;
-        
-        // Speed = 0, Ignition = 0
-        const end_payload = `##,${imei},0,${final_time_str},${final_coord},0,${v_battery},0,0,91.26,${final_odo_str},${v_overspeed},0-0,0-0,+0.0,0,${v_jcb},2000-00-00 00:00:00,2000-00-00 00:00:00,12,3950,0,1-0-0-0-0,0,0,0-0,0,0,${curr_pack_count},1,0-26,3950,1,0,0,0,00000-00,$`;
-        client.publish(topic, end_payload);
-        
-        console.log(`[+] Successfully injected Travel Report Trip!`);
-        console.log(`[+] Sent final Ignition OFF packet to conclude the trip.`);
-        console.log(`[+] Total KM generated for Travel Report: ${(curr_odo - start_odo).toFixed(2)} KM`);
-        
-        setTimeout(() => {
-            client.end();
-            process.exit(0);
-        }, 1000);
+            try {
+                for (let i = 0; i < broadcasts; i++) {
+                    const curr_time = new Date(inject_start.getTime() + (i * 5000));
+                    curr_odo += dist_per_tick;
+                    curr_today_odo += dist_per_tick;
+                    
+                    const time_str = curr_time.toISOString().replace('T', ' ').substring(0, 19);
+                    
+                    let jitter = (i % 2 === 0) ? 0.00001 : -0.00001;
+                    let lat = base_lat + jitter;
+                    let lng = base_lng + jitter;
+                    
+                    const coord_str = `+${lat.toFixed(6)},+${lng.toFixed(6)}`;
+                    const odo_str = `${curr_odo.toFixed(3)}-${curr_today_odo.toFixed(3)}`;
+                    
+                    const payload = `##,${imei},0,${time_str},${coord_str},${speed},${v_battery},0,1,91.26,${odo_str},${v_overspeed},0-0,0-0,+0.0,0,${v_jcb},2000-00-00 00:00:00,2000-00-00 00:00:00,12,3950,0,0-1-0-1-1,0,0,0-0,0,0,${curr_pack_count},1,0-26,3950,1,0,0,0,00000-00,$`;
+                    
+                    client.publish(topic, payload);
+                    curr_pack_count++;
+                    
+                    await new Promise(r => setTimeout(r, 100)); // 100ms safe interval
+                }
+                
+                const final_time = new Date(inject_start.getTime() + (broadcasts * 5000) + 1000);
+                const final_time_str = final_time.toISOString().replace('T', ' ').substring(0, 19);
+                const final_odo_str = `${curr_odo.toFixed(3)}-${curr_today_odo.toFixed(3)}`;
+                const final_coord = `+${base_lat.toFixed(6)},+${base_lng.toFixed(6)}`;
+                
+                const end_payload = `##,${imei},0,${final_time_str},${final_coord},0,${v_battery},0,0,91.26,${final_odo_str},${v_overspeed},0-0,0-0,+0.0,0,${v_jcb},2000-00-00 00:00:00,2000-00-00 00:00:00,12,3950,0,1-0-0-0-0,0,0,0-0,0,0,${curr_pack_count},1,0-26,3950,1,0,0,0,00000-00,$`;
+                client.publish(topic, end_payload);
+                
+                logCallback(`[+] Successfully injected Travel Report Trip!`);
+                logCallback(`[+] Sent final Ignition OFF packet to conclude the trip.`);
+                logCallback(`[+] Total KM generated for Travel Report: ${(curr_odo - start_odo).toFixed(2)} KM`);
+                
+                setTimeout(() => {
+                    client.end();
+                    resolve();
+                }, 1000);
+            } catch (err) {
+                client.end();
+                reject(err);
+            }
+        });
     });
 }
 
-main();
+if (require.main === module) {
+    const imei = process.argv[2];
+    const date_str = process.argv[3];
+    const target_hours = parseFloat(process.argv[4] || "1.5");
+    const speed = parseFloat(process.argv[5] || "30");
+
+    if (!imei || !date_str) {
+        console.error("Usage: node travel_report_spoofer.js <IMEI> <YYYY-MM-DD> [HOURS] [SPEED]");
+        process.exit(1);
+    }
+    runTravelReport(imei, date_str, target_hours, speed, console.log)
+        .then(() => process.exit(0))
+        .catch(err => {
+            console.error(err);
+            process.exit(1);
+        });
+}
+
+module.exports = { runTravelReport };

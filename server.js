@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const engine = require('./spoofer');
+const { runTravelReport } = require('./travel_report_spoofer');
 
 const app = express();
 const port = 5001;
@@ -182,29 +183,19 @@ app.post('/api/run-travel-report', (req, res) => {
         return res.json({ success: false, message: 'IMEI list and Date are required.' });
     }
     
-    // Using child_process to spawn the script for each IMEI
-    const { spawn } = require('child_process');
-    let completed = 0;
-    
     console.log(`[TR] Starting Auto Travel Report for ${imeis.length} vehicles...`);
     
-    imeis.forEach(imei => {
-        const child = spawn('node', ['travel_report_spoofer.js', imei, date, hours || 1.5, speed || 30]);
-        
-        child.stdout.on('data', (data) => {
-            console.log(`[TR] ${data.toString().trim()}`);
-            engine.log(`[TR] ${data.toString().trim()}`); // Also log to frontend UI
-        });
-        
-        child.stderr.on('data', (data) => {
-            console.error(`[TR ERROR] ${data.toString().trim()}`);
-            engine.log(`[TR ERROR] ${data.toString().trim()}`);
-        });
-        
-        child.on('close', (code) => {
-            console.log(`[TR] Process for ${imei} finished with code ${code}`);
-            completed++;
-        });
+    imeis.forEach(async (imei) => {
+        try {
+            await runTravelReport(imei, date, hours || 1.5, speed || 30, (msg) => {
+                console.log(`[TR] [${imei}] ${msg}`);
+                engine.log(`[TR] [${imei}] ${msg}`);
+            });
+            console.log(`[TR] [${imei}] Finished successfully.`);
+        } catch (err) {
+            console.error(`[TR ERROR] [${imei}] ${err.message}`);
+            engine.log(`[TR ERROR] [${imei}] ${err.message}`);
+        }
     });
     
     res.json({ success: true, message: `Started Auto Travel Report for ${imeis.length} vehicles.` });
