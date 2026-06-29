@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
             radio.checked = true;
             currentMode = radio.value;
 
-            if (currentMode === 'drive' || currentMode === 'drive_km') {
+            if (currentMode === 'drive' || currentMode === 'drive_km' || currentMode === 'travel_report') {
                 driveSettings.classList.remove('hidden');
             } else {
                 driveSettings.classList.add('hidden');
@@ -254,15 +254,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            const res = await fetch('/api/start', {
+            let apiUrl = '/api/start';
+            let bodyData = {
+                imeis: imeis, lat, lng, mode: currentMode,
+                history_date: historyDateStr, target_hours: targetHours, 
+                start_odo: startOdo, start_today_odo: startTodayOdo, speed: speed,
+                shield_hours: shieldHours
+            };
+            
+            if (currentMode === 'travel_report') {
+                apiUrl = '/api/run-travel-report';
+                bodyData = {
+                    imeis: imeis, date: historyDateStr, hours: targetHours, speed: speed
+                };
+            }
+
+            const res = await fetch(apiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    imeis: imeis, lat, lng, mode: currentMode,
-                    history_date: historyDateStr, target_hours: targetHours, 
-                    start_odo: startOdo, start_today_odo: startTodayOdo, speed: speed,
-                    shield_hours: shieldHours
-                })
+                body: JSON.stringify(bodyData)
             });
             const data = await res.json();
             

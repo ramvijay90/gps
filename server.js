@@ -176,6 +176,39 @@ app.delete('/api/history', (req, res) => {
         res.json({ success: false, message: 'Failed to clear history.' });
     }
 });
+app.post('/api/run-travel-report', (req, res) => {
+    const { imeis, date, hours, speed } = req.body;
+    if (!imeis || !date) {
+        return res.json({ success: false, message: 'IMEI list and Date are required.' });
+    }
+    
+    // Using child_process to spawn the script for each IMEI
+    const { spawn } = require('child_process');
+    let completed = 0;
+    
+    console.log(`[TR] Starting Auto Travel Report for ${imeis.length} vehicles...`);
+    
+    imeis.forEach(imei => {
+        const child = spawn('node', ['travel_report_spoofer.js', imei, date, hours || 1.5, speed || 30]);
+        
+        child.stdout.on('data', (data) => {
+            console.log(`[TR] ${data.toString().trim()}`);
+            engine.log(`[TR] ${data.toString().trim()}`); // Also log to frontend UI
+        });
+        
+        child.stderr.on('data', (data) => {
+            console.error(`[TR ERROR] ${data.toString().trim()}`);
+            engine.log(`[TR ERROR] ${data.toString().trim()}`);
+        });
+        
+        child.on('close', (code) => {
+            console.log(`[TR] Process for ${imei} finished with code ${code}`);
+            completed++;
+        });
+    });
+    
+    res.json({ success: true, message: `Started Auto Travel Report for ${imeis.length} vehicles.` });
+});
 
 app.listen(port, () => {
     console.log(`Node.js Admin Dashboard running at http://localhost:${port}`);
