@@ -110,10 +110,14 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
         base_lng = 78.681126;
     }
     
-    logCallback(`[+] Found Free Time Gap: ${gap_start.toLocaleString()} to ${gap_end.toLocaleString()}`);
+    function formatIST(date) {
+        return date.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' });
+    }
+    
+    logCallback(`[+] Found Free Time Gap: ${formatIST(gap_start)} to ${formatIST(gap_end)}`);
     
     const inject_start = new Date(gap_start.getTime() + 60000);
-    logCallback(`[+] Will inject fake Travel Report trip starting exactly at: ${inject_start.toLocaleString()}`);
+    logCallback(`[+] Will inject fake Travel Report trip starting exactly at: ${formatIST(inject_start)}`);
     
     return new Promise((resolve, reject) => {
         const client = mqtt.connect("mqtt://igps.io:1883", {
