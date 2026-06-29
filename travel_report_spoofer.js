@@ -1,6 +1,23 @@
 const mqtt = require('mqtt');
 const axios = require('axios');
 
+function calculateNextPosition(lat, lng, distance_m, bearing = 0) {
+    const R = 6378137;
+    const lat1 = lat * Math.PI / 180;
+    const lon1 = lng * Math.PI / 180;
+    const brng = bearing * Math.PI / 180;
+    
+    const lat2 = Math.asin(Math.sin(lat1) * Math.cos(distance_m / R) + 
+                           Math.cos(lat1) * Math.sin(distance_m / R) * Math.cos(brng));
+    const lon2 = lon1 + Math.atan2(Math.sin(brng) * Math.sin(distance_m / R) * Math.cos(lat1), 
+                                   Math.cos(distance_m / R) - Math.sin(lat1) * Math.sin(lat2));
+    
+    return {
+        lat: lat2 * 180 / Math.PI,
+        lng: lon2 * 180 / Math.PI
+    };
+}
+
 async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, logCallback = console.log) {
     const required_gap_seconds = target_hours * 3600;
 
@@ -151,9 +168,13 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
                     
                     const time_str = curr_time.toISOString().replace('T', ' ').substring(0, 19);
                     
-                    let jitter = (i % 2 === 0) ? 0.00001 : -0.00001;
-                    let lat = base_lat + jitter;
-                    let lng = base_lng + jitter;
+                    let lat = base_lat;
+                    let lng = base_lng;
+                    if (i % 2 !== 0) {
+                        const next_pos = calculateNextPosition(base_lat, base_lng, speed_ms * 5.0, 0); // Move North by tick distance
+                        lat = next_pos.lat;
+                        lng = next_pos.lng;
+                    }
                     
                     const coord_str = `+${lat.toFixed(6)},+${lng.toFixed(6)}`;
                     const odo_str = `${curr_odo.toFixed(3)}-${curr_today_odo.toFixed(3)}`;
