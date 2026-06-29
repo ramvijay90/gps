@@ -305,7 +305,16 @@ class SpooferEngine {
                         await new Promise(r => setTimeout(r, 5)); // 5ms sleep
                     }
                     
-                    this.log(`[${imei}] Finished Ghost Drive.`);
+                    // Send final Ignition OFF packet exactly 1 second after the last driving packet
+                    const final_time = new Date(start_date.getTime() + (broadcasts_per_day * 5000) + 1000);
+                    const final_time_str = this.formatDateStr(final_time);
+                    const final_odo_str = `${total_odo.toFixed(6)}-${today_odo.toFixed(6)}`;
+                    const final_coord_str = `+${parseFloat(config.lat).toFixed(6)},+${parseFloat(config.lng).toFixed(6)}`;
+                    // speed=0, ignition=0 (1-0-0-0-0)
+                    const end_payload = `##,${imei},0,${final_time_str},${final_coord_str},0,${v_voltage.toFixed(1)},0,0,91.26,${final_odo_str},0-0,0-0,0-0,+0.0,0,0-0-0-0,2000-00-00 00:00:00,2000-00-00 00:00:00,${v_voltage.toFixed(0)},3950,0,1-0-0-0-0,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
+                    client.publish(topic, end_payload);
+                    
+                    this.log(`[${imei}] Sent final Ignition OFF packet. Finished Ghost Drive.`);
                     this.save_history(imei, "drive", total_odo - initial_odo, initial_odo, total_odo, config.target_hours, config.shield_hours || 0);
                     client.end();
                     resolve();
