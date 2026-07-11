@@ -125,6 +125,42 @@ class SpooferEngine {
         }
     }
     
+    async fetch_historical_track_window(imei, from_date, to_date) {
+        try {
+            const from_str = this.formatDateStr(from_date);
+            const to_str = this.formatDateStr(to_date);
+            const date1 = from_str.substring(0, 10);
+            const date2 = to_str.substring(0, 10);
+            
+            const params = new URLSearchParams();
+            params.append('imei', imei);
+            params.append('from', date1 + " 00:00:00");
+            params.append('to', date2 + " 23:59:59");
+            params.append('username', 'trichy');
+            params.append('action', 'history_web');
+            
+            const res = await axios.post("http://dev.igps.io/http.php", params.toString(), {
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                timeout: 15000
+            });
+            
+            const data = res.data;
+            if (Array.isArray(data)) {
+                return data.filter(p => {
+                    const dt_str = p.dt;
+                    return dt_str >= from_str && dt_str <= to_str;
+                }).map(p => ({
+                    dt: p.dt,
+                    lat: parseFloat(p.lat || 0),
+                    lng: parseFloat(p.lng || 0)
+                }));
+            }
+        } catch (e) {
+            this.log(`Error fetching historical track for ${imei}: ${e.message}`);
+        }
+        return [];
+    }
+    
     start(imeis, lat, lng, mode, history_date, target_hours, start_odo, speed, start_today_odo = 0.0, shield_hours = 0.0) {
         const config = {
             lat: parseFloat(lat),
@@ -288,6 +324,11 @@ class SpooferEngine {
                     
                     const initial_odo = total_odo;
                     
+                    const end_date = new Date(start_date.getTime() + (broadcasts_per_day * 5000));
+                    this.log(`[${imei}] Fetching real historical track to avoid zigzags...`);
+                    const historical_track = await this.fetch_historical_track_window(imei, start_date, end_date);
+                    this.log(`[${imei}] Found ${historical_track.length} real track coordinates during this window.`);
+                    
                     for (let i = 0; i < broadcasts_per_day; i++) {
                         if (this.kill_all_drives) break;
                         
@@ -298,7 +339,30 @@ class SpooferEngine {
                         total_odo += dist_km;
                         today_odo += dist_km;
                         const odo_str = `${total_odo.toFixed(6)}-${today_odo.toFixed(6)}`;
-                        const coord_str = `+${parseFloat(config.lat).toFixed(6)},+${parseFloat(config.lng).toFixed(6)}`;
+                        
+                        let lat = config.lat;
+                        let lng = config.lng;
+                        if (historical_track && historical_track.length > 0) {
+                            // Find closest record in historical_track
+                            let closest = historical_track[0];
+                            let min_diff = Math.abs(new Date(closest.dt.replace(' ', 'T') + 'Z') - current_time);
+                            
+                            for (let j = 1; j < historical_track.length; j++) {
+                                const diff = Math.abs(new Date(historical_track[j].dt.replace(' ', 'T') + 'Z') - current_time);
+                                if (diff < min_diff) {
+                                    min_diff = diff;
+                                    closest = historical_track[j];
+                                }
+                            }
+                            
+                            // Only use it if the time difference is reasonable (within 15 minutes)
+                            if (min_diff < 900000) {
+                                lat = closest.lat;
+                                lng = closest.lng;
+                            }
+                        }
+                        
+                        const coord_str = `+${parseFloat(lat).toFixed(6)},+${parseFloat(lng).toFixed(6)}`;
                         
                         const payload = `##,${imei},0,${time_str},${coord_str},${config.speed},${v_voltage.toFixed(1)},0,1,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,${v_voltage.toFixed(0)},3950,0,0-1-0-1-1,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
                         client.publish(topic, payload);
@@ -309,7 +373,15 @@ class SpooferEngine {
                     const final_time = new Date(start_date.getTime() + (broadcasts_per_day * 5000) + 1000);
                     const final_time_str = this.formatDateStr(final_time);
                     const final_odo_str = `${total_odo.toFixed(6)}-${today_odo.toFixed(6)}`;
-                    const final_coord_str = `+${parseFloat(config.lat).toFixed(6)},+${parseFloat(config.lng).toFixed(6)}`;
+                    
+                    let final_lat = config.lat;
+                    let final_lng = config.lng;
+                    if (historical_track && historical_track.length > 0) {
+                        final_lat = historical_track[historical_track.length - 1].lat;
+                        final_lng = historical_track[historical_track.length - 1].lng;
+                    }
+                    const final_coord_str = `+${parseFloat(final_lat).toFixed(6)},+${parseFloat(final_lng).toFixed(6)}`;
+                    
                     // speed=0, ignition=0 (1-0-0-0-0)
                     const end_payload = `##,${imei},0,${final_time_str},${final_coord_str},0,${v_voltage.toFixed(1)},0,0,91.26,${final_odo_str},0-0,0-0,0-0,+0.0,0,0-0-0-0,2000-00-00 00:00:00,2000-00-00 00:00:00,${v_voltage.toFixed(0)},3950,0,1-0-0-0-0,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
                     client.publish(topic, end_payload);
@@ -367,6 +439,11 @@ class SpooferEngine {
                     let curr_lng = config.lng;
                     let toggle_position = false;
                     
+                    const end_date = new Date(start_date.getTime() + (broadcasts_per_day * 5000));
+                    this.log(`[${imei}] Fetching real historical track to avoid zigzags...`);
+                    const historical_track = await this.fetch_historical_track_window(imei, start_date, end_date);
+                    this.log(`[${imei}] Found ${historical_track.length} real track coordinates during this window.`);
+                    
                     for (let i = 0; i < broadcasts_per_day; i++) {
                         if (this.kill_all_drives) break;
                         
@@ -377,13 +454,36 @@ class SpooferEngine {
                         total_odo += dist_km;
                         today_odo += dist_km;
                         
+                        let base_lat = config.lat;
+                        let base_lng = config.lng;
+                        
+                        if (historical_track && historical_track.length > 0) {
+                            // Find closest record in historical_track
+                            let closest = historical_track[0];
+                            let min_diff = Math.abs(new Date(closest.dt.replace(' ', 'T') + 'Z') - current_time);
+                            
+                            for (let j = 1; j < historical_track.length; j++) {
+                                const diff = Math.abs(new Date(historical_track[j].dt.replace(' ', 'T') + 'Z') - current_time);
+                                if (diff < min_diff) {
+                                    min_diff = diff;
+                                    closest = historical_track[j];
+                                }
+                            }
+                            
+                            // Only use it if the time difference is reasonable (within 15 minutes)
+                            if (min_diff < 900000) {
+                                base_lat = closest.lat;
+                                base_lng = closest.lng;
+                            }
+                        }
+                        
                         if (toggle_position) {
-                            const next_pos = this._calculate_next_position(config.lat, config.lng, distance_m_per_tick, 0);
+                            const next_pos = this._calculate_next_position(base_lat, base_lng, distance_m_per_tick, 0);
                             curr_lat = next_pos.lat;
                             curr_lng = next_pos.lng;
                         } else {
-                            curr_lat = config.lat;
-                            curr_lng = config.lng;
+                            curr_lat = base_lat;
+                            curr_lng = base_lng;
                         }
                         toggle_position = !toggle_position;
                         
