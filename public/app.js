@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
             radio.checked = true;
             currentMode = radio.value;
 
-            if (currentMode === 'drive' || currentMode === 'drive_km') {
+            if (currentMode === 'drive' || currentMode === 'drive_km' || currentMode === 'travel_report') {
                 driveSettings.classList.remove('hidden');
             } else {
                 driveSettings.classList.add('hidden');
@@ -32,15 +32,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     shieldSettings.style.display = 'block';
                 } else {
                     shieldSettings.style.display = 'none';
-                }
-            }
-            
-            const scheduleBtn = document.getElementById('schedule-btn');
-            if (scheduleBtn) {
-                if (currentMode === 'drive_km') {
-                    scheduleBtn.classList.remove('hidden');
-                } else {
-                    scheduleBtn.classList.add('hidden');
                 }
             }
         });
@@ -130,19 +121,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateStatus(isRunning) {
         if (isRunning) {
             statusBadge.className = 'status-badge online';
-            statusBadge.textContent = 'Spoofer Active';
-            startBtn.classList.add('hidden');
-            stopBtn.classList.remove('hidden');
-            spinner.classList.remove('hidden');
-            document.querySelectorAll('input, select, button.btn-secondary').forEach(i => i.disabled = true);
+            statusBadge.textContent = 'System Online';
         } else {
             statusBadge.className = 'status-badge offline';
             statusBadge.textContent = 'System Offline';
-            startBtn.classList.remove('hidden');
-            stopBtn.classList.add('hidden');
-            spinner.classList.add('hidden');
-            document.querySelectorAll('input, select, button.btn-secondary').forEach(i => i.disabled = false);
-            if(pollingInterval) clearInterval(pollingInterval);
         }
     }
 
@@ -156,14 +138,94 @@ document.addEventListener('DOMContentLoaded', () => {
             terminalOutput.innerHTML = '';
             data.logs.forEach(log => addLogLine(log));
             
-            if(!data.is_running && pollingInterval) {
-                clearInterval(pollingInterval);
+            // Render Scheduled Jobs
+            const scheduledList = document.getElementById('scheduled-jobs-list');
+            if (data.scheduled_jobs && data.scheduled_jobs.length > 0) {
+                scheduledList.innerHTML = data.scheduled_jobs.map((job, idx) => `
+                    <div style="background: rgba(255, 255, 255, 0.05); padding: 0.5rem; margin-bottom: 0.5rem; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong>Vehicles:</strong> ${job.imeis ? job.imeis.length : 0} <br>
+                            <strong>Target:</strong> ${job.target_hours || 0} Hrs <br>
+                            <strong>Shield:</strong> ${job.shield_hours || 0} Hrs
+                        </div>
+                        <button onclick="cancelSchedule(${idx})" style="background: #f44336; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer;">Cancel</button>
+                    </div>
+                `).join('');
+            } else {
+                scheduledList.innerHTML = "No jobs scheduled.";
             }
+
+            // Render Active Shields
+            const shieldsList = document.getElementById('active-shields-list');
+            if (data.active_shields && data.active_shields.length > 0) {
+                shieldsList.innerHTML = data.active_shields.map(s => `
+                    <div style="background: rgba(255, 255, 255, 0.05); padding: 0.5rem; margin-bottom: 0.5rem; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong>IMEI:</strong> ${s.imei} <br>
+                            <strong>Expires:</strong> ${s.expiry_time}
+                        </div>
+                        <button onclick="cancelShield('${s.imei}')" style="background: #f44336; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer;">Cancel</button>
+                    </div>
+                `).join('');
+            } else {
+                shieldsList.innerHTML = "No active shields.";
+            }
+            
+            // Render History
+            const historyBody = document.getElementById('history-table-body');
+            if (data.history && data.history.length > 0) {
+                historyBody.innerHTML = data.history.map(h => `
+                    <tr style="border-bottom: 1px solid #333;">
+                        <td style="padding: 8px;">${h.timestamp}</td>
+                        <td style="padding: 8px; color: #00bcd4; font-weight: bold;">${h.imei}</td>
+                        <td style="padding: 8px;">${h.mode === 'drive_km' ? '🚗 KM' : '👻 Hours'}</td>
+                        <td style="padding: 8px; color: #4caf50;">+${h.added_km}</td>
+                        <td style="padding: 8px;">${h.final_odo}</td>
+                        <td style="padding: 8px;">${h.target_hours}</td>
+                        <td style="padding: 8px;">${h.shield_hours}</td>
+                    </tr>
+                `).join('');
+            } else {
+                historyBody.innerHTML = `<tr><td colspan="7" style="padding: 8px; text-align: center;">No history available.</td></tr>`;
+            }
+            
             
         } catch (e) {
             console.error("Failed to poll status", e);
         }
     }
+    
+    // Set polling to run forever every 2 seconds
+    pollingInterval = setInterval(pollStatus, 2000);
+
+    // Cancel functions exposed to window
+    window.cancelSchedule = async function(index) {
+        if (!confirm("Cancel this scheduled job?")) return;
+        try {
+            const res = await fetch('/api/cancel_schedule', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ index })
+            });
+            const data = await res.json();
+            alert(data.message);
+            pollStatus();
+        } catch (e) { alert("Error cancelling."); }
+    };
+
+    window.cancelShield = async function(imei) {
+        if (!confirm("Cancel the shield for " + imei + "? Hardware tracking will resume instantly!")) return;
+        try {
+            const res = await fetch('/api/cancel_shield', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ imei })
+            });
+            const data = await res.json();
+            alert(data.message);
+            pollStatus();
+        } catch (e) { alert("Error cancelling."); }
+    };
 
     startBtn.addEventListener('click', async () => {
         const selectedOptions = Array.from(vehicleSelect.selectedOptions);
@@ -192,23 +254,33 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            const res = await fetch('/api/start', {
+            let apiUrl = '/api/start';
+            let bodyData = {
+                imeis: imeis, lat, lng, mode: currentMode,
+                history_date: historyDateStr, target_hours: targetHours, 
+                start_odo: startOdo, start_today_odo: startTodayOdo, speed: speed,
+                shield_hours: shieldHours
+            };
+            
+            if (currentMode === 'travel_report') {
+                apiUrl = '/api/run-travel-report';
+                bodyData = {
+                    imeis: imeis, date: historyDateStr, hours: targetHours, speed: speed
+                };
+            }
+
+            const res = await fetch(apiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    imeis: imeis, lat, lng, mode: currentMode,
-                    history_date: historyDateStr, target_hours: targetHours, 
-                    start_odo: startOdo, start_today_odo: startTodayOdo, speed: speed,
-                    shield_hours: shieldHours
-                })
+                body: JSON.stringify(bodyData)
             });
             const data = await res.json();
             
             if (data.success) {
                 terminalOutput.innerHTML = '';
-                addLogLine(`Initializing spoofer engine for ${imeis.length} vehicles...`);
+                addLogLine(`Task started for ${imeis.length} vehicles. Moving to background...`);
+                alert("Spoofing task sent to background! You can monitor or cancel it in the Active Background Tasks section below.");
                 updateStatus(true);
-                pollingInterval = setInterval(pollStatus, 1000);
             } else {
                 alert("Error starting spoofer: " + data.message);
             }
@@ -258,6 +330,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (data.success) {
                     alert(data.message);
                     addLogLine(`[SCHEDULED] ${imeis.length} vehicles scheduled for 11:55 PM.`);
+                    pollStatus();
                 } else {
                     alert("Error scheduling: " + data.message);
                 }
@@ -267,18 +340,26 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    stopBtn.addEventListener('click', async () => {
-        try {
-            const res = await fetch('/api/stop', { method: 'POST' });
-            const data = await res.json();
-            if (data.success) {
-                updateStatus(false);
-                addLogLine("[-] System offline. Reverted to hardware tracking.", true);
+    // Removed global Stop button logic as user prefers canceling individual tasks
+    
+    // Clear history
+    const btnClearHistory = document.getElementById('btn-clear-history');
+    if (btnClearHistory) {
+        btnClearHistory.addEventListener('click', async () => {
+            if (!confirm("Are you sure you want to permanently clear the entire spoofing history?")) return;
+            try {
+                const res = await fetch('/api/history', { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) {
+                    pollStatus();
+                } else {
+                    alert(data.message);
+                }
+            } catch (e) {
+                alert("Error clearing history.");
             }
-        } catch (e) {
-            alert("Network error.");
-        }
-    });
+        });
+    }
     
     pollStatus();
 });

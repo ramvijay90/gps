@@ -47,7 +47,7 @@
 
                 <div class="mode-selector">
                     <h3>Operation Mode</h3>
-                    <div class="radio-group" style="grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem;">
+                    <div class="radio-group" style="grid-template-columns: 1fr 1fr 1fr 1fr; gap: 0.5rem;">
                         <label class="radio-card active" id="mode-parked-label">
                             <input type="radio" name="mode" value="parked" checked>
                             <span class="title">🅿️ Parked Mode</span>
@@ -62,6 +62,11 @@
                             <input type="radio" name="mode" value="drive_km">
                             <span class="title">🚗 Ghost Drive (KM)</span>
                             <span class="desc">Add KM + Hours. Uses micro-bouncing GPS trick.</span>
+                        </label>
+                        <label class="radio-card" id="mode-travel-report-label">
+                            <input type="radio" name="mode" value="travel_report">
+                            <span class="title">📄 Auto Travel Report</span>
+                            <span class="desc">Spoof KM in report without affecting route map.</span>
                         </label>
                     </div>
                 </div>
@@ -108,8 +113,7 @@
 
                 <div class="actions">
                     <button id="start-btn" class="btn btn-primary">Start Spoofing</button>
-                    <button id="schedule-btn" class="btn btn-warning hidden" style="background-color: #ff9800; color: white;">Schedule for 11:55 PM</button>
-                    <button id="stop-btn" class="btn btn-danger hidden">Stop Spoofing</button>
+                    <button id="schedule-btn" class="btn btn-warning" style="background-color: #ff9800; color: white;">Schedule for 11:55 PM</button>
                 </div>
             </div>
 
@@ -120,6 +124,52 @@
                 </div>
                 <div class="terminal" id="terminal-output">
                     <div class="log-line text-muted">Awaiting connection...</div>
+                </div>
+            </div>
+
+            <div class="card tasks-panel" style="margin-top: 1rem;">
+                <div class="log-header">
+                    <h2>Active Background Tasks</h2>
+                </div>
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                    <div style="flex: 1; background: var(--bg-dark); padding: 1rem; border-radius: 8px;">
+                        <h3 style="color: #ff9800; font-size: 1rem; margin-bottom: 0.5rem;">🕒 Scheduled for 11:55 PM</h3>
+                        <div id="scheduled-jobs-list" style="color: #aaa; font-size: 0.9rem;">
+                            No jobs scheduled.
+                        </div>
+                    </div>
+                    <div style="flex: 1; background: var(--bg-dark); padding: 1rem; border-radius: 8px;">
+                        <h3 style="color: #00bcd4; font-size: 1rem; margin-bottom: 0.5rem;">🛡️ Active Shields</h3>
+                        <div id="active-shields-list" style="color: #aaa; font-size: 0.9rem;">
+                            No active shields.
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card tasks-panel" style="margin-top: 1rem;">
+                <div class="log-header">
+                    <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+                        <h2>Spoofing History Log</h2>
+                        <button id="btn-clear-history" class="btn btn-secondary" style="padding: 5px 10px; font-size: 0.8rem; background-color: #f44336; border: none;">Clear History</button>
+                    </div>
+                </div>
+                <div style="overflow-x: auto; margin-top: 10px;">
+                    <table style="width: 100%; text-align: left; border-collapse: collapse; font-size: 0.9rem;">
+                        <thead>
+                            <tr style="border-bottom: 1px solid #444;">
+                                <th style="padding: 8px;">Date/Time</th>
+                                <th style="padding: 8px;">Vehicle</th>
+                                <th style="padding: 8px;">Mode</th>
+                                <th style="padding: 8px;">Added KM</th>
+                                <th style="padding: 8px;">Final ODO</th>
+                                <th style="padding: 8px;">Target Hrs</th>
+                                <th style="padding: 8px;">Shield Hrs</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-table-body" style="color: #aaa;">
+                            <tr><td colspan="7" style="padding: 8px; text-align: center;">Loading history...</td></tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </main>
