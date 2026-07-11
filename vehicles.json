@@ -1,0 +1,1056 @@
+[
+    {
+        "vehicle_no": "HITACHI 120 RIG",
+        "imei": "862942074968108",
+        "sim": "5754182054552",
+        "model": "",
+        "type": "Jcb/Hitachi",
+        "voltage": 12.7
+    },
+    {
+        "vehicle_no": "HITACHI 889 RIG",
+        "imei": "862942074967852",
+        "sim": "5754181966335",
+        "model": "",
+        "type": "Hyundai",
+        "voltage": 25.7
+    },
+    {
+        "vehicle_no": "NEW 890 Hitachi RIG",
+        "imei": "869867035014598",
+        "sim": "5754180510717",
+        "model": "",
+        "voltage": 25.0
+    },
+    {
+        "vehicle_no": "TN 45 BA 7417 RIG",
+        "imei": "862942074965567",
+        "sim": "5754182054564",
+        "model": "",
+        "type": "Jet rodder",
+        "voltage": 25.5
+    },
+    {
+        "vehicle_no": "TN 45 BD 9694",
+        "imei": "869925071604191",
+        "sim": "5754181966242",
+        "model": "",
+        "type": "Dog",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BE 1089",
+        "imei": "869925071602476",
+        "sim": "5754181966231",
+        "model": "",
+        "type": "Dog",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BH 8505 RIG",
+        "imei": "862942074961020",
+        "sim": "5754181966404",
+        "model": "",
+        "voltage": 25.0
+    },
+    {
+        "vehicle_no": "TN 45 BH 8524 RIG",
+        "imei": "862942074961145",
+        "sim": "5754181966395",
+        "model": "",
+        "type": "Jcb/Hitachi",
+        "voltage": 14.3
+    },
+    {
+        "vehicle_no": "TN 45 BJ 8650 RIG",
+        "imei": "862942074961137",
+        "sim": "5754181966399",
+        "model": "",
+        "type": "Desludging",
+        "voltage": 12.4
+    },
+    {
+        "vehicle_no": "TN 45 BJ 8669 RIG",
+        "imei": "862942074960972",
+        "sim": "5754181966389",
+        "model": "",
+        "type": "Desludging",
+        "voltage": 12.6
+    },
+    {
+        "vehicle_no": "TN 45 BK 9210",
+        "imei": "869867035065517",
+        "sim": "5754181966309",
+        "model": "",
+        "type": "Tanker Lorry",
+        "voltage": 25.3
+    },
+    {
+        "vehicle_no": "TN 45 BL 4831 RIG",
+        "imei": "862942074965344",
+        "sim": "5754182054549",
+        "model": "",
+        "voltage": 25.0
+    },
+    {
+        "vehicle_no": "TN 45 BL 9731",
+        "imei": "869925071586018",
+        "sim": "5754181966319",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BL 9745",
+        "imei": "869925070801608",
+        "sim": "5754181966315",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 0507",
+        "imei": "869925071591356",
+        "sim": "5754181966323",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 0518",
+        "imei": "869925071591851",
+        "sim": "5754181966232",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 0574",
+        "imei": "869925071609398",
+        "sim": "5754181966235",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 6.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 0672",
+        "imei": "869925071610156",
+        "sim": "5754181966348",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 6.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 0673",
+        "imei": "869925071609000",
+        "sim": "5754181966236",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 0680",
+        "imei": "869925071606212",
+        "sim": "5754181966233",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 0682",
+        "imei": "869925071609166",
+        "sim": "5754181966238",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 6.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 0689",
+        "imei": "869925071607517",
+        "sim": "5754181966209",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 0695",
+        "imei": "869925071607483",
+        "sim": "5754181966351",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 0698",
+        "imei": "869925071607541",
+        "sim": "5754181966332",
+        "model": "",
+        "voltage": 25.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 0703",
+        "imei": "869925071584377",
+        "sim": "5754181966243",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 0713",
+        "imei": "869925071610370",
+        "sim": "5754181966365",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 0714",
+        "imei": "869925071585572",
+        "sim": "5754181966357",
+        "model": "",
+        "voltage": 25.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 0717",
+        "imei": "869925071606899",
+        "sim": "5754181966355",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 0720",
+        "imei": "869925071609448",
+        "sim": "5754181966353",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 0740",
+        "imei": "869925071584302",
+        "sim": "5754181966333",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 0742",
+        "imei": "869925071585135",
+        "sim": "5754181966359",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 0743",
+        "imei": "869925071605388",
+        "sim": "5754181966244",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 0750",
+        "imei": "869925071532178",
+        "sim": "5754181966387",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 0760",
+        "imei": "869925071584328",
+        "sim": "5754181966349",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 0761",
+        "imei": "869925071581852",
+        "sim": "5754182054546",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 0769",
+        "imei": "869925071582991",
+        "sim": "5754181966361",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 0770",
+        "imei": "869925071609331",
+        "sim": "5754181966390",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 6.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 0771",
+        "imei": "869925071568727",
+        "sim": "5754181966210",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 6.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 0774",
+        "imei": "869925071584591",
+        "sim": "5754181966321",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 0775",
+        "imei": "869925071608994",
+        "sim": "5754181966322",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 0778",
+        "imei": "869925071586034",
+        "sim": "5754182054545",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 0779",
+        "imei": "869925071609372",
+        "sim": "5754181966207",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 0784",
+        "imei": "869925071606220",
+        "sim": "5754181966358",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 0797",
+        "imei": "869925071606295",
+        "sim": "5754181966211",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 1003",
+        "imei": "869925071609109",
+        "sim": "5754181966356",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 1009",
+        "imei": "869925071608929",
+        "sim": "5754181966362",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 1014",
+        "imei": "869925071604738",
+        "sim": "5754181966206",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 1027",
+        "imei": "869925071584419",
+        "sim": "5754181966363",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 1028",
+        "imei": "869925071609091",
+        "sim": "5754181966229",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 1029",
+        "imei": "869925071607459",
+        "sim": "5754182054535",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 1031",
+        "imei": "869925071606279",
+        "sim": "5754181966364",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 1035",
+        "imei": "869925071610248",
+        "sim": "5754182054548",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 1044",
+        "imei": "869925071603698",
+        "sim": "5754181966330",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 1051",
+        "imei": "869925071602229",
+        "sim": "5754181966327",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 1057",
+        "imei": "869925071591414",
+        "sim": "5754181966314",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 1059",
+        "imei": "869925070982481",
+        "sim": "5754181966352",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 1063",
+        "imei": "869925071606261",
+        "sim": "5754181966230",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 6.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 1066",
+        "imei": "869925071583866",
+        "sim": "5754181966239",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 1075",
+        "imei": "869925071610347",
+        "sim": "5754181966237",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 1076",
+        "imei": "869925071608945",
+        "sim": "5754181966208",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 1085",
+        "imei": "869925071584633",
+        "sim": "5754181966347",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 6.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 1093",
+        "imei": "869925071587198",
+        "sim": "5754181966350",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 1162",
+        "imei": "869925071608911",
+        "sim": "5754181966325",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 1163",
+        "imei": "869925071606337",
+        "sim": "5754181966339",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 1172",
+        "imei": "869925071591307",
+        "sim": "5754181966245",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 1174",
+        "imei": "869925071606238",
+        "sim": "5754181966346",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 1185",
+        "imei": "869925071586075",
+        "sim": "5754181966234",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 1189",
+        "imei": "869925071585218",
+        "sim": "5754181966354",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 1191",
+        "imei": "869925071608903",
+        "sim": "5754181966240",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 1192",
+        "imei": "869925071586042",
+        "sim": "5754181966338",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 1193",
+        "imei": "869925071568693",
+        "sim": "5754181966360",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 1198",
+        "imei": "869925071606303",
+        "sim": "5754181966345",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 1208",
+        "imei": "869925071610180",
+        "sim": "5754182054547",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 1210",
+        "imei": "869925071604134",
+        "sim": "5754181966386",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 1211",
+        "imei": "869925071610073",
+        "sim": "5754181966318",
+        "model": "",
+        "voltage": 25.0
+    },
+    {
+        "vehicle_no": "TN 45 BM 1216",
+        "imei": "869925071609133",
+        "sim": "5754181966388",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 BS 1090",
+        "imei": "869925071605479",
+        "sim": "5754181966329",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 CA 3012 RIG",
+        "imei": "862942074968447",
+        "sim": "5754181966215",
+        "model": "",
+        "type": "Sand Sweeper",
+        "voltage": 25.0
+    },
+    {
+        "vehicle_no": "TN 45 CA 3022 RIG",
+        "imei": "862942074963158",
+        "sim": "5754181966220",
+        "model": "",
+        "type": "Sand Sweeper",
+        "voltage": 25.0
+    },
+    {
+        "vehicle_no": "TN 45 CB 1352 RIG",
+        "imei": "862942074968058",
+        "sim": "5754181966326",
+        "model": "",
+        "voltage": 25.0
+    },
+    {
+        "vehicle_no": "TN 45 CB 3123 RIG",
+        "imei": "862942074961053",
+        "sim": "5754182054531",
+        "model": "",
+        "type": "Mini desilting",
+        "voltage": 12.5
+    },
+    {
+        "vehicle_no": "TN 45 CB 3137 RIG",
+        "imei": "862942074964982",
+        "sim": "5754182054532",
+        "model": "",
+        "type": "Mini desilting",
+        "voltage": 12.7
+    },
+    {
+        "vehicle_no": "TN 45 CB 3178 RIG",
+        "imei": "862942074963141",
+        "sim": "5754182054533",
+        "model": "",
+        "type": "Mini desilting",
+        "voltage": 12.6
+    },
+    {
+        "vehicle_no": "TN 45 CB 3196 RIG",
+        "imei": "862942074963273",
+        "sim": "5754182054529",
+        "model": "",
+        "type": "Mini desilting",
+        "voltage": 12.4
+    },
+    {
+        "vehicle_no": "TN 45 CB 3244 RIG",
+        "imei": "862942074968470",
+        "sim": "5754182054528",
+        "model": "",
+        "type": "Mini desilting",
+        "voltage": 12.3
+    },
+    {
+        "vehicle_no": "TN 45 CB 3265 RIG",
+        "imei": "862942074967787",
+        "sim": "5754181966218",
+        "model": "",
+        "type": "Mini desilting",
+        "voltage": 12.5
+    },
+    {
+        "vehicle_no": "TN 45 CB 3289 RIG",
+        "imei": "862942074969866",
+        "sim": "5754182054525",
+        "model": "",
+        "type": "Mini desilting",
+        "voltage": 12.5
+    },
+    {
+        "vehicle_no": "TN 45 CB 3299 RIG",
+        "imei": "862942074965286",
+        "sim": "5754182054527",
+        "model": "",
+        "type": "Mini desilting",
+        "voltage": 12.9
+    },
+    {
+        "vehicle_no": "TN 45 CB 3708 RIG NEW",
+        "imei": "869867035051194",
+        "sim": "5754182054536",
+        "model": "",
+        "voltage": 25.0
+    },
+    {
+        "vehicle_no": "TN 45 CB 3857 RIG",
+        "imei": "862942074961160",
+        "sim": "5754181966396",
+        "model": "",
+        "type": "Jcb/Hitachi",
+        "voltage": 12.6
+    },
+    {
+        "vehicle_no": "TN 45 CB 3858 RIG",
+        "imei": "862942074963216",
+        "sim": "5754181966343",
+        "model": "",
+        "type": "Jcb/Hitachi",
+        "voltage": 12.3
+    },
+    {
+        "vehicle_no": "TN 45 CB 5526 RIG",
+        "imei": "869867035062126",
+        "sim": "5754182054561",
+        "model": "",
+        "type": "Tractor",
+        "voltage": 12.4
+    },
+    {
+        "vehicle_no": "TN 45 CB 5554 RIG",
+        "imei": "869867035056540",
+        "sim": "5754181966216",
+        "model": "",
+        "type": "Tractor",
+        "voltage": 12.6
+    },
+    {
+        "vehicle_no": "TN 45 CB 5586 RIG",
+        "imei": "869867035043134",
+        "sim": "5754182054530",
+        "model": "",
+        "type": "Tractor",
+        "voltage": 12.3
+    },
+    {
+        "vehicle_no": "TN 45 CB 7846",
+        "imei": "869925071610362",
+        "sim": "5754181966337",
+        "model": "",
+        "type": "Tipper",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 CB 7849",
+        "imei": "869925071606501",
+        "sim": "5754181966328",
+        "model": "",
+        "type": "Tipper",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 CB 7894",
+        "imei": "869925071607939",
+        "sim": "5754181966331",
+        "model": "",
+        "type": "Tipper",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 CB 7895",
+        "imei": "869925071608861",
+        "sim": "5754181966219",
+        "model": "",
+        "type": "Tipper",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 CB 8141 RIG",
+        "imei": "862942074960956",
+        "sim": "5754181966391",
+        "model": "",
+        "type": "Jcb/Hitachi",
+        "voltage": 14.1
+    },
+    {
+        "vehicle_no": "TN 45 CB 8159 RIG",
+        "imei": "867409074503389",
+        "sim": "5754181966393",
+        "model": "",
+        "voltage": 25.0
+    },
+    {
+        "vehicle_no": "TN 45 CB 9706",
+        "imei": "869925071609026",
+        "sim": "5754182054556",
+        "model": "",
+        "type": "Tipper",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 CB 9709 New 2",
+        "imei": "862942074968025",
+        "sim": "5754181966212",
+        "model": "",
+        "type": "Tipper",
+        "voltage": 25.6
+    },
+    {
+        "vehicle_no": "TN 45 CB 9712",
+        "imei": "869925071585952",
+        "sim": "5754181966225",
+        "model": "",
+        "type": "Tipper",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 CB 9713",
+        "imei": "869925071606287",
+        "sim": "5754181966227",
+        "model": "",
+        "type": "Dog",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 CB 9716",
+        "imei": "869925071584583",
+        "sim": "5754181966341",
+        "model": "",
+        "type": "Tipper",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 CB 9722",
+        "imei": "869925071609497",
+        "sim": "5754181966228",
+        "model": "",
+        "type": "Dog",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 CB 9753",
+        "imei": "869925071606675",
+        "sim": "5754182054557",
+        "model": "",
+        "type": "Tipper",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 CB 9780",
+        "imei": "869925071589160",
+        "sim": "5754181966241",
+        "model": "",
+        "type": "Dog",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 CC 1320 RIG",
+        "imei": "862942074968918",
+        "sim": "5754181966340",
+        "model": "",
+        "type": "Mini Jet",
+        "voltage": 12.4
+    },
+    {
+        "vehicle_no": "TN 45 CC 1624 RIG",
+        "imei": "862942074965518",
+        "sim": "5754181966334",
+        "model": "",
+        "type": "Jet rodder",
+        "voltage": 25.6
+    },
+    {
+        "vehicle_no": "TN 45 CC 1627 RIG NEW",
+        "imei": "869867035051582",
+        "sim": "5754180685891",
+        "model": "",
+        "type": "Jet rodder",
+        "voltage": 25.8
+    },
+    {
+        "vehicle_no": "TN 45 CC 1639 New",
+        "imei": "867409074529814",
+        "sim": "5754181966316",
+        "model": "",
+        "voltage": 25.0
+    },
+    {
+        "vehicle_no": "TN 45 CC 1651 RIG",
+        "imei": "862942074968439",
+        "sim": "5754181966336",
+        "model": "",
+        "type": "Jet rodder",
+        "voltage": 25.5
+    },
+    {
+        "vehicle_no": "TN 45 CC 1667",
+        "imei": "869867035027616",
+        "sim": "5754181966312",
+        "model": "",
+        "type": "Tanker Lorry",
+        "voltage": 25.6
+    },
+    {
+        "vehicle_no": "TN 45 CC 1668 RIG",
+        "imei": "862942074967886",
+        "sim": "5754181966398",
+        "model": "",
+        "type": "Jet rodder",
+        "voltage": 25.1
+    },
+    {
+        "vehicle_no": "TN 45 CC 1689",
+        "imei": "869867035065400",
+        "sim": "5754181966311",
+        "model": "",
+        "type": "Tanker Lorry",
+        "voltage": 25.8
+    },
+    {
+        "vehicle_no": "TN 45 CC 1699",
+        "imei": "869867035065459",
+        "sim": "5754181966405",
+        "model": "",
+        "type": "Tanker Lorry",
+        "voltage": 25.9
+    },
+    {
+        "vehicle_no": "TN 45 CC 2014 RIG",
+        "imei": "862942074968090",
+        "sim": "5754182054551",
+        "model": "",
+        "type": "Drain silt Removal",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 CC 2032 RIG",
+        "imei": "862942074968462",
+        "sim": "5754181966306",
+        "model": "",
+        "type": "Drain silt Removal",
+        "voltage": 12.4
+    },
+    {
+        "vehicle_no": "TN 45 CC 2081 RIG",
+        "imei": "862942074968405",
+        "sim": "5754181966213",
+        "model": "",
+        "type": "Drain silt Removal",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 CC 2090",
+        "imei": "862942074960808",
+        "sim": "5754182054553",
+        "model": "",
+        "type": "Drain silt Removal",
+        "voltage": 12.0
+    },
+    {
+        "vehicle_no": "TN 45 CC 3038 RIG",
+        "imei": "869867035018151",
+        "sim": "5754182054554",
+        "model": "",
+        "type": "Mini Jet",
+        "voltage": 12.6
+    },
+    {
+        "vehicle_no": "TN 45 CC 3039 RIG",
+        "imei": "862942074960949",
+        "sim": "5754181966403",
+        "model": "",
+        "type": "Mini Jet",
+        "voltage": 12.7
+    },
+    {
+        "vehicle_no": "TN 45 CC 3047 RIG",
+        "imei": "862942074968066",
+        "sim": "5754181966400",
+        "model": "",
+        "type": "Mini Jet",
+        "voltage": 12.2
+    },
+    {
+        "vehicle_no": "TN 45 CC 3049 RIG",
+        "imei": "862942074968074",
+        "sim": "5754181966401",
+        "model": "",
+        "type": "Mini Jet",
+        "voltage": 12.4
+    },
+    {
+        "vehicle_no": "TN 45 CC 8109 RIG",
+        "imei": "862942074963182",
+        "sim": "5754181966217",
+        "model": "",
+        "type": "Cattle catcher",
+        "voltage": 12.7
+    },
+    {
+        "vehicle_no": "TN 45 CC 8146 RIG",
+        "imei": "862942074963109",
+        "sim": "5754181966214",
+        "model": "",
+        "type": "Cattle catcher",
+        "voltage": 12.4
+    },
+    {
+        "vehicle_no": "TN 45 CD 0576 RIG",
+        "imei": "862942074960725",
+        "sim": "5754181966392",
+        "model": "",
+        "type": "Jcb/Hitachi",
+        "voltage": 12.9
+    },
+    {
+        "vehicle_no": "TN 45 CE 3685 RIG",
+        "imei": "862942074960584",
+        "sim": "5754181966222",
+        "model": "",
+        "type": "Mini desilting",
+        "voltage": 12.8
+    },
+    {
+        "vehicle_no": "TN 45 CE 3688 RIG",
+        "imei": "862942074967811",
+        "sim": "5754181966221",
+        "model": "",
+        "type": "Mini desilting",
+        "voltage": 11.6
+    },
+    {
+        "vehicle_no": "TN 45 CE 3764 RIG",
+        "imei": "862942074968389",
+        "sim": "5754181966223",
+        "model": "",
+        "type": "Mini desilting",
+        "voltage": 12.7
+    },
+    {
+        "vehicle_no": "TN 45 CE 3792 RIG",
+        "imei": "862942074968116",
+        "sim": "5754181966224",
+        "model": "",
+        "type": "Mini desilting",
+        "voltage": 12.7
+    },
+    {
+        "vehicle_no": "TN 56 BM 0549",
+        "imei": "869925071583874",
+        "sim": "5754181966324",
+        "model": "",
+        "type": "Lcv/Tata Ace",
+        "voltage": 12.0
+    }
+]
