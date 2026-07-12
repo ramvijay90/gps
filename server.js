@@ -189,11 +189,18 @@ app.post('/api/run-travel-report', (req, res) => {
     
     imeis.forEach(async (imei) => {
         try {
-            await runTravelReport(imei, date, hours || 1.5, speed || 30, (msg) => {
+            const is_hours_only = !!hours_only;
+            const target_h = parseFloat(hours || 1.5);
+            const target_spd = parseFloat(speed || 30);
+            
+            await runTravelReport(imei, date, target_h, target_spd, (msg) => {
                 console.log(`[TR] [${imei}] ${msg}`);
                 engine.log(`[TR] [${imei}] ${msg}`);
-            }, hours_only || false);
+            }, is_hours_only);
+            
             console.log(`[TR] [${imei}] Finished successfully.`);
+            const added_km = is_hours_only ? 0 : (target_h * target_spd);
+            engine.save_history(imei, is_hours_only ? "travel_hours" : "travel_report", added_km, 0, 0, target_h, 0, date);
         } catch (err) {
             console.error(`[TR ERROR] [${imei}] ${err.message}`);
             engine.log(`[TR ERROR] [${imei}] ${err.message}`);

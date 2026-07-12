@@ -6,7 +6,10 @@
         "model": "",
         "type": "Jcb/Hitachi",
         "voltage": 12.7,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "SEWAGE",
+        "zone": "Zone Main",
+        "ward": "-"
     },
     {
         "vehicle_no": "HITACHI 889 RIG",
@@ -15,7 +18,10 @@
         "model": "",
         "type": "Hyundai",
         "voltage": 25.7,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "SEWAGE",
+        "zone": "Zone Main",
+        "ward": "-"
     },
     {
         "vehicle_no": "NEW 890 Hitachi RIG",
@@ -32,7 +38,10 @@
         "model": "",
         "type": "Jet rodder",
         "voltage": 25.5,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "SEWAGE",
+        "zone": "Zone Main",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 BD 9694",
@@ -41,7 +50,10 @@
         "model": "",
         "type": "Dog",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "OTHERS",
+        "zone": "Zone2",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 BE 1089",
@@ -50,7 +62,10 @@
         "model": "",
         "type": "Dog",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "OTHERS",
+        "zone": "Zone1",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 BH 8505 RIG",
@@ -67,7 +82,10 @@
         "model": "",
         "type": "Jcb/Hitachi",
         "voltage": 14.3,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "SEWAGE",
+        "zone": "-",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 BJ 8650 RIG",
@@ -76,7 +94,10 @@
         "model": "",
         "type": "Desludging",
         "voltage": 12.4,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "SEWAGE",
+        "zone": "Zone Main",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 BJ 8669 RIG",
@@ -85,7 +106,10 @@
         "model": "",
         "type": "Desludging",
         "voltage": 12.6,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "SEWAGE",
+        "zone": "Zone Main",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 BK 9210",
@@ -94,7 +118,10 @@
         "model": "",
         "type": "Tanker Lorry",
         "voltage": 25.3,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "WATER TANKER",
+        "zone": "Zone Main",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 BL 4831 RIG",
@@ -111,7 +138,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone3",
+        "ward": "46"
     },
     {
         "vehicle_no": "TN 45 BL 9745",
@@ -120,7 +150,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone3",
+        "ward": "42"
     },
     {
         "vehicle_no": "TN 45 BM 0507",
@@ -129,7 +162,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone5",
+        "ward": "29"
     },
     {
         "vehicle_no": "TN 45 BM 0518",
@@ -138,7 +174,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone5",
+        "ward": "27"
     },
     {
         "vehicle_no": "TN 45 BM 0574",
@@ -147,7 +186,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 6.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone3",
+        "ward": "35"
     },
     {
         "vehicle_no": "TN 45 BM 0672",
@@ -156,7 +198,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 6.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone1",
+        "ward": "6"
     },
     {
         "vehicle_no": "TN 45 BM 0673",
@@ -165,7 +210,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone1",
+        "ward": "7"
     },
     {
         "vehicle_no": "TN 45 BM 0680",
@@ -174,7 +222,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone3",
+        "ward": "43"
     },
     {
         "vehicle_no": "TN 45 BM 0682",
@@ -183,7 +234,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 6.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone1",
+        "ward": "15"
     },
     {
         "vehicle_no": "TN 45 BM 0689",
@@ -192,7 +246,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone5",
+        "ward": "24"
     },
     {
         "vehicle_no": "TN 45 BM 0695",
@@ -201,7 +258,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone4",
+        "ward": "54"
     },
     {
         "vehicle_no": "TN 45 BM 0698",
@@ -218,7 +278,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone4",
+        "ward": "62"
     },
     {
         "vehicle_no": "TN 45 BM 0713",
@@ -227,7 +290,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone1",
+        "ward": "14"
     },
     {
         "vehicle_no": "TN 45 BM 0714",
@@ -244,7 +310,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone5",
+        "ward": "9"
     },
     {
         "vehicle_no": "TN 45 BM 0720",
@@ -253,7 +322,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone1",
+        "ward": "13"
     },
     {
         "vehicle_no": "TN 45 BM 0740",
@@ -262,7 +334,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone5",
+        "ward": "22"
     },
     {
         "vehicle_no": "TN 45 BM 0742",
@@ -271,7 +346,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone5",
+        "ward": "28"
     },
     {
         "vehicle_no": "TN 45 BM 0743",
@@ -280,7 +358,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone2",
+        "ward": "56"
     },
     {
         "vehicle_no": "TN 45 BM 0750",
@@ -289,7 +370,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone4",
+        "ward": "61"
     },
     {
         "vehicle_no": "TN 45 BM 0760",
@@ -298,7 +382,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone5",
+        "ward": "8"
     },
     {
         "vehicle_no": "TN 45 BM 0761",
@@ -307,7 +394,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone5",
+        "ward": "55"
     },
     {
         "vehicle_no": "TN 45 BM 0769",
@@ -316,7 +406,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone5",
+        "ward": "26"
     },
     {
         "vehicle_no": "TN 45 BM 0770",
@@ -325,7 +418,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 6.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone3",
+        "ward": "45"
     },
     {
         "vehicle_no": "TN 45 BM 0771",
@@ -334,7 +430,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 6.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone3",
+        "ward": "19"
     },
     {
         "vehicle_no": "TN 45 BM 0774",
@@ -343,7 +442,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone1",
+        "ward": "1"
     },
     {
         "vehicle_no": "TN 45 BM 0775",
@@ -352,7 +454,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone3",
+        "ward": "40"
     },
     {
         "vehicle_no": "TN 45 BM 0778",
@@ -361,7 +466,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone4",
+        "ward": "47"
     },
     {
         "vehicle_no": "TN 45 BM 0779",
@@ -370,7 +478,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone2",
+        "ward": "30"
     },
     {
         "vehicle_no": "TN 45 BM 0784",
@@ -379,7 +490,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone2",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 BM 0797",
@@ -388,7 +502,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "NA",
+        "zone": "-",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 BM 1003",
@@ -397,7 +514,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone3",
+        "ward": "37"
     },
     {
         "vehicle_no": "TN 45 BM 1009",
@@ -406,7 +526,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone4",
+        "ward": "53"
     },
     {
         "vehicle_no": "TN 45 BM 1014",
@@ -415,7 +538,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone3",
+        "ward": "36"
     },
     {
         "vehicle_no": "TN 45 BM 1027",
@@ -424,7 +550,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone2",
+        "ward": "59"
     },
     {
         "vehicle_no": "TN 45 BM 1028",
@@ -433,7 +562,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone2",
+        "ward": "34"
     },
     {
         "vehicle_no": "TN 45 BM 1029",
@@ -442,7 +574,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone3",
+        "ward": "39"
     },
     {
         "vehicle_no": "TN 45 BM 1031",
@@ -451,7 +586,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone4",
+        "ward": "64"
     },
     {
         "vehicle_no": "TN 45 BM 1035",
@@ -460,7 +598,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone4",
+        "ward": "51"
     },
     {
         "vehicle_no": "TN 45 BM 1044",
@@ -469,7 +610,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone5",
+        "ward": "11"
     },
     {
         "vehicle_no": "TN 45 BM 1051",
@@ -478,7 +622,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone4",
+        "ward": "57"
     },
     {
         "vehicle_no": "TN 45 BM 1057",
@@ -487,7 +634,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone2",
+        "ward": "49"
     },
     {
         "vehicle_no": "TN 45 BM 1059",
@@ -496,7 +646,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone4",
+        "ward": "60"
     },
     {
         "vehicle_no": "TN 45 BM 1063",
@@ -505,7 +658,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 6.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone4",
+        "ward": "65"
     },
     {
         "vehicle_no": "TN 45 BM 1066",
@@ -514,7 +670,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone2",
+        "ward": "48"
     },
     {
         "vehicle_no": "TN 45 BM 1075",
@@ -523,7 +682,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone1",
+        "ward": "12"
     },
     {
         "vehicle_no": "TN 45 BM 1076",
@@ -532,7 +694,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone2",
+        "ward": "31"
     },
     {
         "vehicle_no": "TN 45 BM 1085",
@@ -541,7 +706,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 6.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone1",
+        "ward": "21"
     },
     {
         "vehicle_no": "TN 45 BM 1093",
@@ -550,7 +718,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone5",
+        "ward": "25"
     },
     {
         "vehicle_no": "TN 45 BM 1162",
@@ -559,7 +730,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone2",
+        "ward": "47"
     },
     {
         "vehicle_no": "TN 45 BM 1163",
@@ -568,7 +742,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone2",
+        "ward": "20"
     },
     {
         "vehicle_no": "TN 45 BM 1172",
@@ -577,7 +754,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone1",
+        "ward": "2"
     },
     {
         "vehicle_no": "TN 45 BM 1174",
@@ -586,7 +766,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone1",
+        "ward": "3"
     },
     {
         "vehicle_no": "TN 45 BM 1185",
@@ -595,7 +778,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone4",
+        "ward": "58"
     },
     {
         "vehicle_no": "TN 45 BM 1189",
@@ -604,7 +790,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone2",
+        "ward": "32"
     },
     {
         "vehicle_no": "TN 45 BM 1191",
@@ -613,7 +802,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone1",
+        "ward": "5"
     },
     {
         "vehicle_no": "TN 45 BM 1192",
@@ -622,7 +814,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone2",
+        "ward": "50"
     },
     {
         "vehicle_no": "TN 45 BM 1193",
@@ -631,7 +826,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone4",
+        "ward": "23"
     },
     {
         "vehicle_no": "TN 45 BM 1198",
@@ -640,7 +838,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone2",
+        "ward": "18"
     },
     {
         "vehicle_no": "TN 45 BM 1208",
@@ -649,7 +850,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone3",
+        "ward": "16"
     },
     {
         "vehicle_no": "TN 45 BM 1210",
@@ -658,7 +862,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone3",
+        "ward": "38"
     },
     {
         "vehicle_no": "TN 45 BM 1211",
@@ -675,7 +882,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone5",
+        "ward": "10"
     },
     {
         "vehicle_no": "TN 45 BS 1090",
@@ -684,7 +894,10 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone4",
+        "ward": "52"
     },
     {
         "vehicle_no": "TN 45 CA 3012 RIG",
@@ -693,7 +906,10 @@
         "model": "",
         "type": "Sand Sweeper",
         "voltage": 25.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "SEWAGE",
+        "zone": "Zone Main",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CA 3022 RIG",
@@ -702,7 +918,10 @@
         "model": "",
         "type": "Sand Sweeper",
         "voltage": 25.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "SEWAGE",
+        "zone": "Zone Main",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CB 1352 RIG",
@@ -719,7 +938,10 @@
         "model": "",
         "type": "Mini desilting",
         "voltage": 12.5,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "OTHERS",
+        "zone": "Zone Main",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CB 3137 RIG",
@@ -728,7 +950,10 @@
         "model": "",
         "type": "Mini desilting",
         "voltage": 12.7,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "OTHERS",
+        "zone": "Zone Main",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CB 3178 RIG",
@@ -737,7 +962,10 @@
         "model": "",
         "type": "Mini desilting",
         "voltage": 12.6,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "OTHERS",
+        "zone": "Zone Main",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CB 3196 RIG",
@@ -746,7 +974,10 @@
         "model": "",
         "type": "Mini desilting",
         "voltage": 12.4,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "OTHERS",
+        "zone": "Zone Main",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CB 3244 RIG",
@@ -755,7 +986,10 @@
         "model": "",
         "type": "Mini desilting",
         "voltage": 12.3,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "OTHERS",
+        "zone": "Zone Main",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CB 3265 RIG",
@@ -764,7 +998,10 @@
         "model": "",
         "type": "Mini desilting",
         "voltage": 12.5,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "OTHERS",
+        "zone": "Zone2",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CB 3289 RIG",
@@ -773,7 +1010,10 @@
         "model": "",
         "type": "Mini desilting",
         "voltage": 12.5,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "OTHERS",
+        "zone": "Zone Main",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CB 3299 RIG",
@@ -782,7 +1022,10 @@
         "model": "",
         "type": "Mini desilting",
         "voltage": 12.9,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "OTHERS",
+        "zone": "Zone Main",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CB 3708 RIG NEW",
@@ -799,7 +1042,10 @@
         "model": "",
         "type": "Jcb/Hitachi",
         "voltage": 12.6,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "SEWAGE",
+        "zone": "Zone5",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CB 3858 RIG",
@@ -808,7 +1054,10 @@
         "model": "",
         "type": "Jcb/Hitachi",
         "voltage": 12.3,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "SEWAGE",
+        "zone": "Zone3",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CB 5526 RIG",
@@ -817,7 +1066,10 @@
         "model": "",
         "type": "Tractor",
         "voltage": 12.4,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "SEWAGE",
+        "zone": "Zone Main",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CB 5554 RIG",
@@ -826,7 +1078,10 @@
         "model": "",
         "type": "Tractor",
         "voltage": 12.6,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "SEWAGE",
+        "zone": "Zone Main",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CB 5586 RIG",
@@ -835,7 +1090,10 @@
         "model": "",
         "type": "Tractor",
         "voltage": 12.3,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "SEWAGE",
+        "zone": "Zone Main",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CB 7846",
@@ -844,7 +1102,10 @@
         "model": "",
         "type": "Tipper",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "TIPPER",
+        "zone": "Zone2",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CB 7849",
@@ -853,7 +1114,10 @@
         "model": "",
         "type": "Tipper",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "TIPPER",
+        "zone": "Zone5",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CB 7894",
@@ -862,7 +1126,10 @@
         "model": "",
         "type": "Tipper",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "TIPPER",
+        "zone": "Zone4",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CB 7895",
@@ -871,7 +1138,10 @@
         "model": "",
         "type": "Tipper",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "TIPPER",
+        "zone": "Zone1",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CB 8141 RIG",
@@ -880,7 +1150,10 @@
         "model": "",
         "type": "Jcb/Hitachi",
         "voltage": 14.1,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "SEWAGE",
+        "zone": "-",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CB 8159 RIG",
@@ -897,7 +1170,10 @@
         "model": "",
         "type": "Tipper",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "TIPPER",
+        "zone": "Zone Main",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CB 9709 New 2",
@@ -906,7 +1182,10 @@
         "model": "",
         "type": "Tipper",
         "voltage": 25.6,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "TIPPER",
+        "zone": "-",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CB 9712",
@@ -915,7 +1194,10 @@
         "model": "",
         "type": "Tipper",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "TIPPER",
+        "zone": "Zone4",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CB 9713",
@@ -924,7 +1206,10 @@
         "model": "",
         "type": "Dog",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "OTHERS",
+        "zone": "Zone4",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CB 9716",
@@ -933,7 +1218,10 @@
         "model": "",
         "type": "Tipper",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "TIPPER",
+        "zone": "Zone3",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CB 9722",
@@ -942,7 +1230,10 @@
         "model": "",
         "type": "Dog",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "OTHERS",
+        "zone": "Zone5",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CB 9753",
@@ -951,7 +1242,10 @@
         "model": "",
         "type": "Tipper",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "TIPPER",
+        "zone": "Zone Main",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CB 9780",
@@ -960,7 +1254,10 @@
         "model": "",
         "type": "Dog",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "OTHERS",
+        "zone": "Zone3",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CC 1320 RIG",
@@ -969,7 +1266,10 @@
         "model": "",
         "type": "Mini Jet",
         "voltage": 12.4,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "SEWAGE",
+        "zone": "Zone5",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CC 1624 RIG",
@@ -978,7 +1278,10 @@
         "model": "",
         "type": "Jet rodder",
         "voltage": 25.6,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "SEWAGE",
+        "zone": "Zone5",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CC 1627 RIG NEW",
@@ -987,7 +1290,10 @@
         "model": "",
         "type": "Jet rodder",
         "voltage": 25.8,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "SEWAGE",
+        "zone": "Zone Main",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CC 1639 New",
@@ -1004,7 +1310,10 @@
         "model": "",
         "type": "Jet rodder",
         "voltage": 25.5,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "SEWAGE",
+        "zone": "Zone2",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CC 1667",
@@ -1013,7 +1322,10 @@
         "model": "",
         "type": "Tanker Lorry",
         "voltage": 25.6,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "WATER TANKER",
+        "zone": "Zone Main",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CC 1668 RIG",
@@ -1022,7 +1334,10 @@
         "model": "",
         "type": "Jet rodder",
         "voltage": 25.1,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "SEWAGE",
+        "zone": "Zone1",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CC 1689",
@@ -1031,7 +1346,10 @@
         "model": "",
         "type": "Tanker Lorry",
         "voltage": 25.8,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "WATER TANKER",
+        "zone": "Zone Main",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CC 1699",
@@ -1040,7 +1358,10 @@
         "model": "",
         "type": "Tanker Lorry",
         "voltage": 25.9,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "WATER TANKER",
+        "zone": "Zone Main",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CC 2014 RIG",
@@ -1049,7 +1370,10 @@
         "model": "",
         "type": "Drain silt Removal",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "OTHERS",
+        "zone": "-",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CC 2032 RIG",
@@ -1058,7 +1382,10 @@
         "model": "",
         "type": "Drain silt Removal",
         "voltage": 12.4,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "OTHERS",
+        "zone": "Zone Main",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CC 2081 RIG",
@@ -1067,7 +1394,10 @@
         "model": "",
         "type": "Drain silt Removal",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "OTHERS",
+        "zone": "Zone Main",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CC 2090",
@@ -1076,7 +1406,10 @@
         "model": "",
         "type": "Drain silt Removal",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "OTHERS",
+        "zone": "Zone Main",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CC 3038 RIG",
@@ -1094,7 +1427,10 @@
         "model": "",
         "type": "Mini Jet",
         "voltage": 12.7,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "SEWAGE",
+        "zone": "Zone1",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CC 3047 RIG",
@@ -1103,7 +1439,10 @@
         "model": "",
         "type": "Mini Jet",
         "voltage": 12.2,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "SEWAGE",
+        "zone": "Zone2",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CC 3049 RIG",
@@ -1112,7 +1451,10 @@
         "model": "",
         "type": "Mini Jet",
         "voltage": 12.4,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "SEWAGE",
+        "zone": "Zone4",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CC 8109 RIG",
@@ -1121,7 +1463,10 @@
         "model": "",
         "type": "Cattle catcher",
         "voltage": 12.7,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "OTHERS",
+        "zone": "Zone Main",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CC 8146 RIG",
@@ -1130,7 +1475,10 @@
         "model": "",
         "type": "Cattle catcher",
         "voltage": 12.4,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "OTHERS",
+        "zone": "Zone Main",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CD 0576 RIG",
@@ -1139,7 +1487,10 @@
         "model": "",
         "type": "Jcb/Hitachi",
         "voltage": 12.9,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "SEWAGE",
+        "zone": "-",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CE 3685 RIG",
@@ -1148,7 +1499,10 @@
         "model": "",
         "type": "Mini desilting",
         "voltage": 12.8,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "OTHERS",
+        "zone": "Zone5",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CE 3688 RIG",
@@ -1157,7 +1511,10 @@
         "model": "",
         "type": "Mini desilting",
         "voltage": 11.6,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "OTHERS",
+        "zone": "Zone2",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CE 3764 RIG",
@@ -1166,7 +1523,10 @@
         "model": "",
         "type": "Mini desilting",
         "voltage": 12.7,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "OTHERS",
+        "zone": "Zone5",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 45 CE 3792 RIG",
@@ -1175,7 +1535,10 @@
         "model": "",
         "type": "Mini desilting",
         "voltage": 12.7,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "OTHERS",
+        "zone": "Zone1",
+        "ward": "-"
     },
     {
         "vehicle_no": "TN 56 BM 0549",
@@ -1184,6 +1547,9 @@
         "model": "",
         "type": "Lcv/Tata Ace",
         "voltage": 12.0,
-        "sleep_mode": false
+        "sleep_mode": false,
+        "category": "Primary",
+        "zone": "Zone1",
+        "ward": "41"
     }
 ]

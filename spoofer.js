@@ -50,7 +50,7 @@ class SpooferEngine {
         return false;
     }
     
-    save_history(imei, mode, added_km, start_odo, final_odo, target_hours, shield_hours) {
+    save_history(imei, mode, added_km, start_odo, final_odo, target_hours, shield_hours, history_date = null) {
         try {
             const HISTORY_FILE = 'history.json';
             let history = [];
@@ -58,17 +58,20 @@ class SpooferEngine {
                 history = JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8'));
             }
             const istTime = new Date(Date.now() + (330 * 60000));
+            const recordDate = history_date ? history_date : istTime.toISOString().split('T')[0];
+            
             history.unshift({
                 timestamp: istTime.toISOString().replace('T', ' ').substring(0, 19),
+                date: recordDate,
                 imei,
                 mode,
-                added_km: added_km.toFixed(2),
-                start_odo: start_odo.toFixed(2),
-                final_odo: final_odo.toFixed(2),
-                target_hours,
-                shield_hours
+                added_km: parseFloat(parseFloat(added_km).toFixed(2)),
+                start_odo: parseFloat(parseFloat(start_odo).toFixed(2)),
+                final_odo: parseFloat(parseFloat(final_odo).toFixed(2)),
+                target_hours: parseFloat(target_hours),
+                shield_hours: parseFloat(shield_hours)
             });
-            if (history.length > 500) history = history.slice(0, 500); // keep last 500
+            if (history.length > 1000) history = history.slice(0, 1000); // keep last 1000
             fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 4));
         } catch (e) {
             console.error("Failed to save history", e);
@@ -386,7 +389,7 @@ class SpooferEngine {
                     client.publish(topic, end_payload);
                     
                     this.log(`[${imei}] Sent final Engine Hours OFF packet. Finished Engine Hours Drive.`);
-                    this.save_history(imei, "drive", total_odo - initial_odo, initial_odo, total_odo, config.target_hours, config.shield_hours || 0);
+                    this.save_history(imei, "drive", total_odo - initial_odo, initial_odo, total_odo, config.target_hours, config.shield_hours || 0, config.history_date);
                     client.end();
                     resolve();
                     
@@ -495,7 +498,7 @@ class SpooferEngine {
                     }
                     
                     this.log(`[${imei}] Finished Ghost Drive.`);
-                    this.save_history(imei, "drive_km", total_odo - initial_odo, initial_odo, total_odo, config.target_hours, config.shield_hours || 0);
+                    this.save_history(imei, "drive_km", total_odo - initial_odo, initial_odo, total_odo, config.target_hours, config.shield_hours || 0, config.history_date);
                     
                     // SHIELD MODE for Node.js
                     if (config.shield_hours > 0 && !config.history_date) {
