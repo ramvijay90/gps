@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
             radio.checked = true;
             currentMode = radio.value;
 
-            if (currentMode === 'drive' || currentMode === 'drive_km' || currentMode === 'travel_report') {
+            if (currentMode === 'drive' || currentMode === 'drive_km' || currentMode === 'travel_report' || currentMode === 'travel_hours') {
                 driveSettings.classList.remove('hidden');
             } else {
                 driveSettings.classList.add('hidden');
@@ -262,10 +262,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 shield_hours: shieldHours
             };
             
-            if (currentMode === 'travel_report') {
+            if (currentMode === 'travel_report' || currentMode === 'travel_hours') {
                 apiUrl = '/api/run-travel-report';
                 bodyData = {
-                    imeis: imeis, date: historyDateStr, hours: targetHours, speed: speed
+                    imeis: imeis, date: historyDateStr, hours: targetHours, speed: speed,
+                    hours_only: (currentMode === 'travel_hours')
                 };
             }
 

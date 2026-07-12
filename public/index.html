@@ -47,7 +47,7 @@
 
                 <div class="mode-selector">
                     <h3>Operation Mode</h3>
-                    <div class="radio-group" style="grid-template-columns: 1fr 1fr 1fr 1fr; gap: 0.5rem;">
+                    <div class="radio-group" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.5rem;">
                         <label class="radio-card active" id="mode-parked-label">
                             <input type="radio" name="mode" value="parked" checked>
                             <span class="title">🅿️ Parked Mode</span>
@@ -65,8 +65,13 @@
                         </label>
                         <label class="radio-card" id="mode-travel-report-label">
                             <input type="radio" name="mode" value="travel_report">
-                            <span class="title">📄 Auto Travel Report</span>
+                            <span class="title">📄 Auto Travel (KM)</span>
                             <span class="desc">Spoof KM in report without affecting route map.</span>
+                        </label>
+                        <label class="radio-card" id="mode-travel-hours-label">
+                            <input type="radio" name="mode" value="travel_hours">
+                            <span class="title">⏱️ Auto Travel (Hours)</span>
+                            <span class="desc">Spoof Hours in report with 0 KM.</span>
                         </label>
                     </div>
                 </div>

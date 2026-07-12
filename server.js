@@ -178,19 +178,19 @@ app.delete('/api/history', (req, res) => {
     }
 });
 app.post('/api/run-travel-report', (req, res) => {
-    const { imeis, date, hours, speed } = req.body;
+    const { imeis, date, hours, speed, hours_only } = req.body;
     if (!imeis || !date) {
         return res.json({ success: false, message: 'IMEI list and Date are required.' });
     }
     
-    console.log(`[TR] Starting Auto Travel Report for ${imeis.length} vehicles...`);
+    console.log(`[TR] Starting Auto Travel Report (hours_only=${hours_only}) for ${imeis.length} vehicles...`);
     
     imeis.forEach(async (imei) => {
         try {
             await runTravelReport(imei, date, hours || 1.5, speed || 30, (msg) => {
                 console.log(`[TR] [${imei}] ${msg}`);
                 engine.log(`[TR] [${imei}] ${msg}`);
-            });
+            }, hours_only || false);
             console.log(`[TR] [${imei}] Finished successfully.`);
         } catch (err) {
             console.error(`[TR ERROR] [${imei}] ${err.message}`);
