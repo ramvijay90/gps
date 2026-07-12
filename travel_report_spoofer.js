@@ -312,19 +312,19 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
             logCallback("[+] Connected to MQTT server.");
             const topic = `BB/${imei}`;
             
-            const broadcasts = Math.floor(required_gap_seconds / 5);
+            const broadcasts = Math.floor(required_gap_seconds / 30);
             
             // If hours_only is true: speed is 0 and distance is 0
             const active_speed = hours_only ? 0 : speed;
             const speed_ms = active_speed * (1000.0 / 3600.0);
-            const dist_per_tick = hours_only ? 0 : ((speed_ms * 5.0) / 1000.0);
+            const dist_per_tick = hours_only ? 0 : ((speed_ms * 30.0) / 1000.0);
             
             let curr_odo = start_odo;
             let curr_today_odo = today_odo;
             
             try {
                 for (let i = 0; i < broadcasts; i++) {
-                    const curr_time = new Date(inject_start.getTime() + (i * 5000));
+                    const curr_time = new Date(inject_start.getTime() + (i * 30000));
                     curr_odo += dist_per_tick;
                     curr_today_odo += dist_per_tick;
                     
@@ -333,7 +333,7 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
                     let lat = base_lat;
                     let lng = base_lng;
                     if (!hours_only && i % 2 !== 0) {
-                        const next_pos = calculateNextPosition(base_lat, base_lng, speed_ms * 5.0, 0); // Move North by tick distance
+                        const next_pos = calculateNextPosition(base_lat, base_lng, speed_ms * 30.0, 0); // Move North by tick distance
                         lat = next_pos.lat;
                         lng = next_pos.lng;
                     }
@@ -351,7 +351,7 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
                     await new Promise(r => setTimeout(r, 100)); // 100ms safe interval
                 }
                 
-                const final_time = new Date(inject_start.getTime() + (broadcasts * 5000) + 1000);
+                const final_time = new Date(inject_start.getTime() + (broadcasts * 30000) + 1000);
                 const final_time_str = final_time.toISOString().replace('T', ' ').substring(0, 19);
                 const final_odo_str = `${curr_odo.toFixed(3)}-${curr_today_odo.toFixed(3)}`;
                 const final_coord = `+${base_lat.toFixed(6)},+${base_lng.toFixed(6)}`;
