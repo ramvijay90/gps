@@ -651,7 +651,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        tbody.innerHTML = '<tr><td colspan="6" style="padding: 12px; text-align: center;">Generating report...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="padding: 12px; text-align: center;">Generating report...</td></tr>';
         
         try {
             const resV = await fetch('/api/vehicles');
@@ -671,7 +671,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (datesList.length > 31) {
                 alert("Maximum report window is 31 days.");
-                tbody.innerHTML = '<tr><td colspan="6" style="padding: 12px; text-align: center; color: red;">Please select a date range <= 31 days.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5" style="padding: 12px; text-align: center; color: red;">Please select a date range <= 31 days.</td></tr>';
                 return;
             }
             
@@ -680,7 +680,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 <th>Vehicle</th>
                 <th>Type</th>
                 <th>Category</th>
-                <th>Zone</th>
                 <th>Total</th>
             `;
             datesList.forEach(dt => {
@@ -740,7 +739,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td style="padding: 10px 8px; font-weight: bold; color: #fff;">${v.vehicle_no}</td>
                     <td style="padding: 10px 8px;">${v.type || '-'}</td>
                     <td style="padding: 10px 8px;">${v.category || 'NA'}</td>
-                    <td style="padding: 10px 8px;">${v.zone || '-'}</td>
                     <td style="padding: 10px 8px; font-weight: bold; color: #ffeb3b;">${totalStr}</td>
                 `;
                 
@@ -767,7 +765,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     vehicle: v.vehicle_no,
                     type: v.type || '-',
                     category: v.category || 'NA',
-                    zone: v.zone || '-',
                     total: totalStr,
                     daily: dailyVals
                 });
@@ -780,12 +777,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             if (vehicles.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="padding: 12px; text-align: center;">No vehicles found.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5" style="padding: 12px; text-align: center;">No vehicles found.</td></tr>';
             }
             
         } catch (e) {
             console.error("Failed to generate report:", e);
-            tbody.innerHTML = '<tr><td colspan="6" style="padding: 12px; text-align: center; color: red;">Error generating report.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" style="padding: 12px; text-align: center; color: red;">Error generating report.</td></tr>';
         }
     }
     
@@ -794,58 +791,85 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnGenKm) btnGenKm.addEventListener('click', (e) => { e.preventDefault(); generateReport('km'); });
     if (btnGenHours) btnGenHours.addEventListener('click', (e) => { e.preventDefault(); generateReport('hours'); });
 
-    // Export to Excel
+    // Export to Excel (Export ONLY filtered/visible rows from the DOM)
     function exportToExcel(type) {
-        const data = type === 'km' ? currentKmReportData : currentHoursReportData;
-        if (!data) {
-            alert("No report data available. Please click Submit to generate the report first.");
+        const tableId = type === 'km' ? 'table-km-report' : 'table-hours-report';
+        const table = document.getElementById(tableId);
+        if (!table) return;
+        
+        const rows = [];
+        
+        // Grab headers from the DOM
+        const headerCells = table.querySelectorAll('thead tr th');
+        const headers = Array.from(headerCells).map(th => th.textContent.trim());
+        rows.push(headers);
+        
+        // Grab visible rows from the DOM
+        const bodyRows = table.querySelectorAll('tbody tr');
+        let visibleCount = 0;
+        
+        bodyRows.forEach(tr => {
+            if (tr.style.display !== 'none') {
+                visibleCount++;
+                const cells = tr.querySelectorAll('td');
+                // If there's only one cell spanning columns (like "No vehicles found"), ignore or skip
+                if (cells.length < 3) return;
+                
+                const rowData = Array.from(cells).map((td, idx) => {
+                    if (idx === 0) return visibleCount;
+                    const txt = td.textContent.trim();
+                    // Parse distance cells as floats where possible
+                    if (type === 'km' && idx >= 4 && txt !== '-') {
+                        const val = parseFloat(txt);
+                        return isNaN(val) ? txt : val;
+                    }
+                    return txt;
+                });
+                rows.push(rowData);
+            }
+        });
+        
+        if (visibleCount === 0 || rows.length <= 1) {
+            alert("No report data visible to export. Please generate the report first.");
             return;
         }
         
         const wb = XLSX.utils.book_new();
-        const headers = ["#", "Vehicle No", "Type", "Category", "Zone", "Total"];
-        data.dates.forEach(dt => {
-            const parts = dt.split('-');
-            headers.push(`${parseInt(parts[2])}/${parseInt(parts[1])}`);
-        });
-        
-        const rows = [headers];
-        data.rows.forEach((r, idx) => {
-            const rowData = [
-                idx + 1,
-                r.vehicle,
-                r.type,
-                r.category,
-                r.zone,
-                r.total
-            ];
-            r.daily.forEach(val => {
-                if (type === 'km') {
-                    rowData.push(val > 0 ? parseFloat(val.toFixed(1)) : "-");
-                } else {
-                    if (val > 0) {
-                        const h = Math.floor(val);
-                        const m = Math.round((val - h) * 60);
-                        rowData.push(`${h}h ${m}m`);
-                    } else {
-                        rowData.push("-");
-                    }
-                }
-            });
-            rows.push(rowData);
-        });
-        
         const ws = XLSX.utils.aoa_to_sheet(rows);
         XLSX.utils.book_append_sheet(wb, ws, `${type.toUpperCase()} Report`);
         const filename = `${type}_report_${new Date().toISOString().split('T')[0]}.xlsx`;
         XLSX.writeFile(wb, filename);
     }
 
-    // Export to PDF
+    // Export to PDF (Export ONLY filtered/visible rows from the DOM)
     function exportToPDF(type) {
-        const data = type === 'km' ? currentKmReportData : currentHoursReportData;
-        if (!data) {
-            alert("No report data available. Please click Submit to generate the report first.");
+        const tableId = type === 'km' ? 'table-km-report' : 'table-hours-report';
+        const table = document.getElementById(tableId);
+        if (!table) return;
+        
+        const headerCells = table.querySelectorAll('thead tr th');
+        const headers = Array.from(headerCells).map(th => th.textContent.trim());
+        
+        const rows = [];
+        const bodyRows = table.querySelectorAll('tbody tr');
+        let visibleCount = 0;
+        
+        bodyRows.forEach(tr => {
+            if (tr.style.display !== 'none') {
+                visibleCount++;
+                const cells = tr.querySelectorAll('td');
+                if (cells.length < 3) return;
+                
+                const rowData = Array.from(cells).map((td, idx) => {
+                    if (idx === 0) return visibleCount;
+                    return td.textContent.trim();
+                });
+                rows.push(rowData);
+            }
+        });
+        
+        if (visibleCount === 0 || rows.length === 0) {
+            alert("No report data visible to export. Please generate the report first.");
             return;
         }
         
@@ -856,41 +880,11 @@ document.addEventListener('DOMContentLoaded', () => {
         doc.setFontSize(16);
         doc.text(`iGPS Spoof ${type.toUpperCase()} Daily Report`, 14, 15);
         
+        const fromDateStr = document.getElementById(type === 'km' ? 'km-from-date' : 'hours-from-date').value;
+        const toDateStr = document.getElementById(type === 'km' ? 'km-to-date' : 'hours-to-date').value;
         doc.setFont("Helvetica", "normal");
         doc.setFontSize(10);
-        doc.text(`Report Period: ${data.dates[0]} to ${data.dates[data.dates.length - 1]}`, 14, 21);
-        
-        const headers = ["#", "Vehicle No", "Type", "Category", "Zone", "Total"];
-        data.dates.forEach(dt => {
-            const parts = dt.split('-');
-            headers.push(`${parseInt(parts[2])}/${parseInt(parts[1])}`);
-        });
-        
-        const rows = [];
-        data.rows.forEach((r, idx) => {
-            const rowData = [
-                idx + 1,
-                r.vehicle,
-                r.type,
-                r.category,
-                r.zone,
-                r.total
-            ];
-            r.daily.forEach(val => {
-                if (type === 'km') {
-                    rowData.push(val > 0 ? val.toFixed(1) : "-");
-                } else {
-                    if (val > 0) {
-                        const h = Math.floor(val);
-                        const m = Math.round((val - h) * 60);
-                        rowData.push(`${h}h ${m}m`);
-                    } else {
-                        rowData.push("-");
-                    }
-                }
-            });
-            rows.push(rowData);
-        });
+        doc.text(`Report Period: ${fromDateStr} to ${toDateStr}`, 14, 21);
         
         doc.autoTable({
             head: [headers],
