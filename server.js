@@ -291,9 +291,17 @@ app.post('/api/send-command', (req, res) => {
                 
                 // Filter out standard GPS telemetry payloads on the base topic (e.g. ##,862...)
                 // to avoid flooding the feed, but capture actual text responses (e.g. status status, OK, sleep ok, etc.)
-                if (isLive || (!msgStr.startsWith('##') && !msgStr.startsWith('%%'))) {
-                    console.log(`[CMD RESPONSE] [${name}] ${msgStr}`);
-                    engine.log(`[CMD RESPONSE] [${name}] ${msgStr}`);
+                // and command acknowledgments (containing "-ad")
+                if (isLive || msgStr.includes('-ad') || (!msgStr.startsWith('##') && !msgStr.startsWith('%%'))) {
+                    let displayMsg = msgStr;
+                    if (msgStr.includes('-ad')) {
+                        // Extract the command suffix token (e.g. 77296-ad,$)
+                        const parts = msgStr.split(',');
+                        const ackPart = parts.find(p => p.includes('-ad'));
+                        displayMsg = `Command Ack received: ${ackPart || 'OK'}`;
+                    }
+                    console.log(`[CMD RESPONSE] [${name}] ${displayMsg}`);
+                    engine.log(`[CMD RESPONSE] [${name}] ${displayMsg}`);
                 }
             } catch (err) {
                 console.error("[CMD RESPONSE ERROR] Error parsing response:", err.message);
