@@ -8,8 +8,9 @@ const { runTravelReport } = require('./travel_report_spoofer');
 
 const app = express();
 const port = 5001;
-const SCHEDULED_FILE = 'scheduled_jobs.json';
-const HISTORY_FILE = 'history.json';
+const SCHEDULED_FILE = path.join(__dirname, '..', 'scheduled_jobs.json');
+const HISTORY_FILE = path.join(__dirname, '..', 'history.json');
+const SLEEP_CONFIGS_FILE = path.join(__dirname, '..', 'sleep_configs.json');
 
 app.use(cors());
 app.use(express.json());
@@ -69,11 +70,33 @@ setInterval(() => {
     }
 }, 30000);
 
+function loadSleepConfigs() {
+    try {
+        if (fs.existsSync(SLEEP_CONFIGS_FILE)) {
+            return JSON.parse(fs.readFileSync(SLEEP_CONFIGS_FILE, 'utf8'));
+        }
+    } catch (e) {
+        console.error("Error reading sleep configs:", e);
+    }
+    return {};
+}
+
+function saveSleepConfigs(configs) {
+    fs.writeFileSync(SLEEP_CONFIGS_FILE, JSON.stringify(configs, null, 4));
+}
+
 // API Routes
 app.get('/api/vehicles', (req, res) => {
     try {
         const vehiclesData = fs.readFileSync(path.join(__dirname, 'vehicles.json'), 'utf8');
-        res.json(JSON.parse(vehiclesData));
+        const vehicles = JSON.parse(vehiclesData);
+        const sleepConfigs = loadSleepConfigs();
+        
+        vehicles.forEach(v => {
+            v.sleep_mode = !!sleepConfigs[v.imei];
+        });
+        
+        res.json(vehicles);
     } catch (e) {
         res.json([]);
     }
@@ -332,21 +355,23 @@ app.post('/api/set-sleep-state', (req, res) => {
         return res.json({ success: false, message: 'IMEI is required.' });
     }
     
-    // Read and update vehicles.json
+    // Read and verify vehicle exists
     let vehicles = [];
     const VEHICLES_FILE = path.join(__dirname, 'vehicles.json');
     try {
         vehicles = JSON.parse(fs.readFileSync(VEHICLES_FILE, 'utf8'));
         const v = vehicles.find(item => item.imei === imei);
         if (v) {
-            v.sleep_mode = !!enabled;
-            fs.writeFileSync(VEHICLES_FILE, JSON.stringify(vehicles, null, 4));
+            // Save state to sleep_configs.json instead of vehicles.json
+            const sleepConfigs = loadSleepConfigs();
+            sleepConfigs[imei] = !!enabled;
+            saveSleepConfigs(sleepConfigs);
         } else {
             return res.json({ success: false, message: 'Vehicle not found.' });
         }
     } catch (e) {
-        console.error("Error updating vehicles.json for sleep mode:", e.message);
-        return res.json({ success: false, message: 'Failed to update vehicle configuration.' });
+        console.error("Error updating sleep configs:", e.message);
+        return res.json({ success: false, message: 'Failed to update sleep configuration.' });
     }
     
     // Formulate GPRS command: TIMER,10,36000# to enable sleep, TIMER,10,60# to disable
