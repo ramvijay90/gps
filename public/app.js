@@ -655,10 +655,22 @@ document.addEventListener('DOMContentLoaded', () => {
         
         try {
             const resV = await fetch('/api/vehicles');
-            const vehicles = await resV.json();
+            let vehicles = [];
+            try {
+                vehicles = await resV.json();
+            } catch(err) {
+                console.error("Failed to parse vehicles:", err);
+            }
+            if (!Array.isArray(vehicles)) vehicles = [];
             
             const resH = await fetch('/api/history');
-            const history = await resH.json();
+            let history = [];
+            try {
+                history = await resH.json();
+            } catch(err) {
+                console.error("Failed to parse history:", err);
+            }
+            if (!Array.isArray(history)) history = [];
             
             const d1 = new Date(fromDateStr);
             const d2 = new Date(toDateStr);
@@ -695,79 +707,83 @@ document.addEventListener('DOMContentLoaded', () => {
             const reportRows = [];
             
             vehicles.forEach((v, index) => {
-                const imei = v.imei;
-                let totalVal = 0.0;
-                const dailyVals = [];
-                
-                datesList.forEach(dt => {
-                    const dayLogs = history.filter(item => item.imei === imei && item.date === dt);
+                try {
+                    const imei = v.imei;
+                    let totalVal = 0.0;
+                    const dailyVals = [];
                     
-                    let val = 0.0;
-                    if (type === 'km') {
-                        dayLogs.forEach(log => {
-                            if (log.mode === 'travel_report' || log.mode === 'drive_km' || log.mode === 'drive') {
-                                val += parseFloat(log.added_km || 0);
-                            }
-                        });
-                        totalVal += val;
-                        dailyVals.push(val);
-                    } else {
-                        dayLogs.forEach(log => {
-                            if (log.mode === 'travel_hours' || log.mode === 'drive' || log.mode === 'drive_km') {
-                                val += parseFloat(log.target_hours || 0);
-                            }
-                        });
-                        totalVal += val;
-                        dailyVals.push(val);
-                    }
-                });
-                
-                let totalStr = "";
-                if (type === 'km') {
-                    totalStr = totalVal > 0 ? totalVal.toFixed(1) : "0.0";
-                } else {
-                    const h = Math.floor(totalVal);
-                    const m = Math.round((totalVal - h) * 60);
-                    totalStr = `${h}h ${m}m`;
-                }
-                
-                const tr = document.createElement('tr');
-                tr.style.borderBottom = '1px solid #333';
-                
-                let cellsHtml = `
-                    <td style="padding: 10px 8px;">${index + 1}</td>
-                    <td style="padding: 10px 8px; font-weight: bold; color: #fff;">${v.vehicle_no}</td>
-                    <td style="padding: 10px 8px;">${v.type || '-'}</td>
-                    <td style="padding: 10px 8px;">${v.category || 'NA'}</td>
-                    <td style="padding: 10px 8px; font-weight: bold; color: #ffeb3b;">${totalStr}</td>
-                `;
-                
-                dailyVals.forEach(val => {
-                    let valStr = "";
-                    if (type === 'km') {
-                        valStr = val > 0 ? val.toFixed(1) : "-";
-                    } else {
-                        if (val > 0) {
-                            const h = Math.floor(val);
-                            const m = Math.round((val - h) * 60);
-                            valStr = `${h}h ${m}m`;
+                    datesList.forEach(dt => {
+                        const dayLogs = history.filter(item => item && item.imei === imei && item.date === dt);
+                        
+                        let val = 0.0;
+                        if (type === 'km') {
+                            dayLogs.forEach(log => {
+                                if (log.mode === 'travel_report' || log.mode === 'drive_km' || log.mode === 'drive') {
+                                    val += parseFloat(log.added_km || 0);
+                                }
+                            });
+                            totalVal += val;
+                            dailyVals.push(val);
                         } else {
-                            valStr = "-";
+                            dayLogs.forEach(log => {
+                                if (log.mode === 'travel_hours' || log.mode === 'drive' || log.mode === 'drive_km') {
+                                    val += parseFloat(log.target_hours || 0);
+                                }
+                            });
+                            totalVal += val;
+                            dailyVals.push(val);
                         }
+                    });
+                    
+                    let totalStr = "";
+                    if (type === 'km') {
+                        totalStr = totalVal > 0 ? totalVal.toFixed(1) : "0.0";
+                    } else {
+                        const h = Math.floor(totalVal);
+                        const m = Math.round((totalVal - h) * 60);
+                        totalStr = `${h}h ${m}m`;
                     }
-                    cellsHtml += `<td style="padding: 10px 8px;">${valStr}</td>`;
-                });
-                
-                tr.innerHTML = cellsHtml;
-                tbody.appendChild(tr);
-                
-                reportRows.push({
-                    vehicle: v.vehicle_no,
-                    type: v.type || '-',
-                    category: v.category || 'NA',
-                    total: totalStr,
-                    daily: dailyVals
-                });
+                    
+                    const tr = document.createElement('tr');
+                    tr.style.borderBottom = '1px solid #333';
+                    
+                    let cellsHtml = `
+                        <td style="padding: 10px 8px;">${index + 1}</td>
+                        <td style="padding: 10px 8px; font-weight: bold; color: #fff;">${v.vehicle_no || '-'}</td>
+                        <td style="padding: 10px 8px;">${v.type || '-'}</td>
+                        <td style="padding: 10px 8px;">${v.category || 'NA'}</td>
+                        <td style="padding: 10px 8px; font-weight: bold; color: #ffeb3b;">${totalStr}</td>
+                    `;
+                    
+                    dailyVals.forEach(val => {
+                        let valStr = "";
+                        if (type === 'km') {
+                            valStr = val > 0 ? val.toFixed(1) : "-";
+                        } else {
+                            if (val > 0) {
+                                const h = Math.floor(val);
+                                const m = Math.round((val - h) * 60);
+                                valStr = `${h}h ${m}m`;
+                            } else {
+                                valStr = "-";
+                            }
+                        }
+                        cellsHtml += `<td style="padding: 10px 8px;">${valStr}</td>`;
+                    });
+                    
+                    tr.innerHTML = cellsHtml;
+                    tbody.appendChild(tr);
+                    
+                    reportRows.push({
+                        vehicle: v.vehicle_no || '-',
+                        type: v.type || '-',
+                        category: v.category || 'NA',
+                        total: totalStr,
+                        daily: dailyVals
+                    });
+                } catch (rowErr) {
+                    console.error("Error processing row:", rowErr);
+                }
             });
             
             if (type === 'km') {
