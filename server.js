@@ -215,7 +215,7 @@ app.post('/api/send-command', (req, res) => {
         console.error("Failed to load vehicles.json for commands:", e.message);
     }
     
-    console.log(`[CMD] Sending command "${command}" to ${imeis.length} vehicles...`);
+    engine.log(`[CMD] Sending "${command}" to ${imeis.length} vehicle(s)...`);
     
     const client = mqtt.connect("mqtt://igps.io:1883", {
         username: "realiot",
@@ -226,9 +226,24 @@ app.post('/api/send-command', (req, res) => {
     
     client.on('error', (err) => {
         console.error("[CMD ERROR] MQTT Client Error:", err.message);
+        engine.log(`[CMD ERROR] MQTT Client Error: ${err.message}`);
     });
     
     client.on('connect', () => {
+        // Subscribe to LIVE topics for all target vehicles to capture responses
+        imeis.forEach(imei => {
+            const liveTopic = `BB/${imei}/LIVE`;
+            client.subscribe(liveTopic, (err) => {
+                if (err) {
+                    console.error(`[CMD ERROR] Failed to subscribe to response topic for ${imei}:`, err.message);
+                } else {
+                    console.log(`[CMD] Listening for responses on: ${liveTopic}`);
+                    engine.log(`[CMD] Listening for responses on: ${liveTopic}`);
+                }
+            });
+        });
+
+        // Publish the GPRS commands
         imeis.forEach(imei => {
             const topic = `BB/${imei}/CMD`;
             const v = vehicles.find(item => item.imei === imei);
@@ -240,15 +255,35 @@ app.post('/api/send-command', (req, res) => {
             client.publish(topic, payload, (err) => {
                 if (err) {
                     console.error(`[CMD ERROR] Failed to send to ${imei}:`, err.message);
+                    engine.log(`[CMD ERROR] Failed to send to ${imei}: ${err.message}`);
                 } else {
                     console.log(`[CMD SUCCESS] Sent to ${imei}: ${payload}`);
                 }
             });
         });
         
+        // Handle incoming responses
+        client.on('message', (topic, payload) => {
+            try {
+                const msgStr = payload.toString();
+                const imei = topic.split('/')[1];
+                
+                // Get vehicle name if available
+                const v = vehicles.find(item => item.imei === imei);
+                const name = v ? v.vehicle_no : imei;
+                
+                console.log(`[CMD RESPONSE] [${name}] ${msgStr}`);
+                engine.log(`[CMD RESPONSE] [${name}] ${msgStr}`);
+            } catch (err) {
+                console.error("[CMD RESPONSE ERROR] Error parsing response:", err.message);
+            }
+        });
+
+        // End listener after 30 seconds
         setTimeout(() => {
+            console.log("[CMD] Closing command response listener client.");
             client.end();
-        }, 1000);
+        }, 30000);
     });
     
     res.json({ success: true, message: `Command transmission started for ${imeis.length} vehicles.` });
