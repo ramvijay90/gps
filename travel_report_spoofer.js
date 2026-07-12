@@ -314,16 +314,16 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
             
             const broadcasts = Math.floor(required_gap_seconds / 30);
             
-            // If hours_only is true: speed is 0, distance is 0, ignition is 1 (ON), JCB is active
-            // If hours_only is false: speed is speed, distance is added, ignition is 0 (OFF), JCB is inactive (no hours!)
+            // Ignition must be 1 (ON) for both modes so it registers as a playback segment in the list
+            // JCB accessory runtime (SPV Hours) is only enabled if hours_only is true
             const active_speed = hours_only ? 0 : speed;
             const speed_ms = active_speed * (1000.0 / 3600.0);
             const dist_per_tick = hours_only ? 0 : ((speed_ms * 30.0) / 1000.0);
             
-            const ignition_val = hours_only ? 1 : 0;
+            const ignition_val = 1;
             const jcb_ac_val = hours_only ? "1-1-1-1" : "0-0-0-0";
             const jcb_bit_val = hours_only ? 1 : 0;
-            const status_bit_val = hours_only ? "0-1-0-1-1" : "1-0-0-0-0";
+            const status_bit_val = "0-1-0-1-1";
             
             let curr_odo = start_odo;
             let curr_today_odo = today_odo;
@@ -364,7 +364,40 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
                 
                 // Final packet ends the trip: Ignition=0, JCB=0-0-0-0
                 const end_payload = `##,${imei},0,${final_time_str},${final_coord},0,${v_battery},0,0,91.26,${final_odo_str},${v_overspeed},0-0,0-0,+0.0,0,0-0-0-0,2000-00-00 00:00:00,2000-00-00 00:00:00,12,3950,0,1-0-0-0-0,0,0,0-0,0,0,${curr_pack_count},1,0-26,3950,1,0,0,0,00000-00,$`;
-                client.publish(topic, end_payload);
+                 client.publish(topic, end_payload);
+                 
+                 // Overwrite subsequent original packets to prevent odometer drops
+                 const final_time_ms = final_time.getTime();
+                 const subsequent_records = history_data.filter(r => {
+                     const t = new Date(r.dt.replace(' ', 'T') + "Z").getTime();
+                     return t > final_time_ms;
+                 });
+                 
+                 if (subsequent_records.length > 0) {
+                     logCallback(`[+] Overwriting ${subsequent_records.length} subsequent packets to prevent odometer drops...`);
+                     for (const r of subsequent_records) {
+                         const time_str = r.dt;
+                         const lat = parseFloat(r.lat || 0);
+                         const lng = parseFloat(r.lng || 0);
+                         const coord_str = `+${lat.toFixed(6)},+${lng.toFixed(6)}`;
+                         
+                         const odo_str = `${curr_odo.toFixed(3)}-${curr_today_odo.toFixed(3)}`;
+                         
+                         const p_count = r.pack_count ? parseInt(r.pack_count) : curr_pack_count;
+                         const p_bat = r.battery ? parseFloat(r.battery).toFixed(1) : v_battery;
+                         const p_overspeed = r.overspeed || v_overspeed;
+                         const p_jcb = r.jcb_ac || "0-0-0-0";
+                         const p_speed = parseFloat(r.speed || 0);
+                         const p_ign = parseInt(r.ignition !== undefined ? r.ignition : 0);
+                         const p_status = p_ign === 1 ? "0-1-0-1-1" : "1-0-0-0-0";
+                         const p_jcb_bit = p_jcb === "1-1-1-1" ? 1 : 0;
+                         
+                         const payload = `##,${imei},0,${time_str},${coord_str},${p_speed},${p_bat},0,${p_ign},91.26,${odo_str},${p_overspeed},0-0,0-0,+0.0,0,${p_jcb},2000-00-00 00:00:00,2000-00-00 00:00:00,12,3950,0,${p_status},0,0,0-0,0,0,${p_count},${p_jcb_bit},0-26,3950,${p_jcb_bit},0,0,0,00000-00,$`;
+                         
+                         client.publish(topic, payload);
+                         await new Promise(res => setTimeout(res, 50));
+                     }
+                 }
                 
                 logCallback(`[+] Successfully injected Travel Report Trip!`);
                 logCallback(`[+] Sent final Ignition OFF packet to conclude the trip.`);
