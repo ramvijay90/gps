@@ -379,9 +379,12 @@ app.post('/api/set-sleep-state', (req, res) => {
         return res.json({ success: false, message: 'Failed to update sleep configuration.' });
     }
     
-    // Formulate GPRS command: TIMER,10,36000# to enable sleep, TIMER,10,60# to disable
-    const command = enabled ? "TIMER,10,36000#" : "TIMER,10,60#";
-    engine.log(`[SLEEP SETTING] Toggling sleep mode ${enabled ? 'ON' : 'OFF'} for vehicle ${imei}...`);
+    // Formulate GPRS command: SLEEP 005 for Truck Boss (IMEI starts with 86294), TIMER,10,36000# for Concox/KTT
+    const isTruckBoss = imei.startsWith("86294");
+    const command = enabled 
+        ? (isTruckBoss ? "SLEEP 005" : "TIMER,10,36000#")
+        : (isTruckBoss ? "SLEEP 000" : "TIMER,10,60#");
+    engine.log(`[SLEEP SETTING] Toggling sleep mode ${enabled ? 'ON' : 'OFF'} for vehicle ${imei} using command "${command}"...`);
     
     const client = mqtt.connect("mqtt://igps.io:1883", {
         username: "realiot",
