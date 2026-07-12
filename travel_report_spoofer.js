@@ -230,11 +230,60 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
             }
         }
     } else {
-        logCallback("[!] No history found for this date. The whole day is free!");
-        gap_start = new Date(date_str + "T08:00:00+05:30"); // Default 8 AM
+        logCallback("[!] No history found for this date. Fetching last known state from previous 5 days...");
+        const targetDate = new Date(date_str);
+        const fiveDaysAgo = new Date(targetDate.getTime() - (5 * 24 * 3600 * 1000));
+        const prev_from = fiveDaysAgo.toISOString().split('T')[0] + " 00:00:00";
+        const prev_to = new Date(targetDate.getTime() - (1 * 24 * 3600 * 1000)).toISOString().split('T')[0] + " 23:59:59";
+        
+        try {
+            const params = new URLSearchParams();
+            params.append('imei', imei);
+            params.append('from', prev_from);
+            params.append('to', prev_to);
+            params.append('username', 'trichy');
+            params.append('action', 'history_web');
+            
+            const res = await axios.post('http://dev.igps.io/http.php', params.toString(), {
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                timeout: 10000
+            });
+            
+            if (Array.isArray(res.data) && res.data.length > 0) {
+                const last_record = res.data[res.data.length - 1];
+                base_lat = parseFloat(last_record.lat || 0);
+                base_lng = parseFloat(last_record.lng || 0);
+                if (last_record.pack_count) curr_pack_count = parseInt(last_record.pack_count) + 1;
+                if (last_record.battery) v_battery = parseFloat(last_record.battery).toFixed(1);
+                if (last_record.overspeed) v_overspeed = last_record.overspeed;
+                if (last_record.jcb_ac) v_jcb = last_record.jcb_ac;
+                
+                const totel_km = last_record.totel_km || "0-0";
+                if (totel_km.includes("-")) {
+                    start_odo = parseFloat(totel_km.split("-")[0]);
+                    today_odo = parseFloat(totel_km.split("-")[1]);
+                } else {
+                    start_odo = parseFloat(totel_km);
+                    today_odo = parseFloat(totel_km);
+                }
+                logCallback(`[+] Found last known odometer: ${start_odo} KM and position (${base_lat}, ${base_lng})`);
+            } else {
+                logCallback("[-] No previous history found in last 5 days. Using defaults.");
+                base_lat = 10.822819;
+                base_lng = 78.681126;
+                start_odo = 0.0;
+                today_odo = 0.0;
+            }
+        } catch (e) {
+            logCallback(`[-] Failed to fetch previous history: ${e.message}. Using defaults.`);
+            base_lat = 10.822819;
+            base_lng = 78.681126;
+            start_odo = 0.0;
+            today_odo = 0.0;
+        }
+        
+        gap_start = new Date(date_str + "T08:00:00+05:30");
         gap_end = new Date(date_str + "T22:00:00+05:30");
-        base_lat = 10.822819; // Default fallback coord
-        base_lng = 78.681126;
     }
     
     function formatIST(date) {
