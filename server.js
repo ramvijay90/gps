@@ -72,8 +72,8 @@ setInterval(() => {
 // API Routes
 app.get('/api/vehicles', (req, res) => {
     try {
-        const vehicles = require('./vehicles.json');
-        res.json(vehicles);
+        const vehiclesData = fs.readFileSync(path.join(__dirname, 'vehicles.json'), 'utf8');
+        res.json(JSON.parse(vehiclesData));
     } catch (e) {
         res.json([]);
     }
