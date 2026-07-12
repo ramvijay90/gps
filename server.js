@@ -54,6 +54,75 @@ const SLEEP_CONFIGS_FILE = path.join(DATA_DIR, 'sleep_configs.json');
     }
 });
 
+// Seed missing May 1-3, 2026 spoofing records for vehicle 9713 (IMEI 869925071606287) if history is empty
+try {
+    const targetImei = '869925071606287';
+    let history = [];
+    if (fs.existsSync(HISTORY_FILE)) {
+        try {
+            history = JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8') || '[]');
+        } catch(e) {}
+    }
+    
+    const hasMay1 = history.some(h => h.imei === targetImei && h.date === '2026-05-01');
+    const hasMay2 = history.some(h => h.imei === targetImei && h.date === '2026-05-02');
+    const hasMay3 = history.some(h => h.imei === targetImei && h.date === '2026-05-03');
+    
+    let changed = false;
+    if (!hasMay1) {
+        history.push({
+            timestamp: "2026-05-01 12:56:46",
+            date: "2026-05-01",
+            imei: targetImei,
+            vehicle_no: "TN 45 CB 9713",
+            mode: "travel_report",
+            added_km: 3.3,
+            start_odo: 2552.82,
+            final_odo: 2556.12,
+            target_hours: 0,
+            shield_hours: 0
+        });
+        changed = true;
+    }
+    if (!hasMay2) {
+        history.push({
+            timestamp: "2026-05-02 17:56:53",
+            date: "2026-05-02",
+            imei: targetImei,
+            vehicle_no: "TN 45 CB 9713",
+            mode: "travel_report",
+            added_km: 3.3,
+            start_odo: 2556.12,
+            final_odo: 2559.42,
+            target_hours: 0,
+            shield_hours: 0
+        });
+        changed = true;
+    }
+    if (!hasMay3) {
+        history.push({
+            timestamp: "2026-05-03 10:00:00",
+            date: "2026-05-03",
+            imei: targetImei,
+            vehicle_no: "TN 45 CB 9713",
+            mode: "travel_report",
+            added_km: 3.3,
+            start_odo: 2559.42,
+            final_odo: 2562.72,
+            target_hours: 0,
+            shield_hours: 0
+        });
+        changed = true;
+    }
+    
+    if (changed) {
+        console.log("Auto-seeding May 1-3 spoofing records for vehicle 9713...");
+        fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 4));
+    }
+} catch (err) {
+    console.error("Failed to seed May history records:", err.message);
+}
+
 app.use(cors());
 app.use(express.json());
 // Serve the frontend UI exactly like Flask's "static" folder
@@ -249,56 +318,7 @@ app.post('/api/clear-logs', (req, res) => {
     engine.logs = [];
     res.json({ success: true, message: 'Telemetry logs cleared on server.' });
 });
-app.post('/api/report/:type', async (req, res) => {
-    const { type } = req.params;
-    const { start, end } = req.body;
-    
-    if (!start || !end) {
-        return res.status(400).json({ error: "Start and end dates are required." });
-    }
-    
-    try {
-        // Authenticate with dev.igps.io
-        const loginRes = await axios.post('http://dev.igps.io/trichy/api/govt_api.php', 
-            'action=verify&username=trichy&password=tmc%40123',
-            {
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                }
-            }
-        );
-        
-        // Extract cookies from login response
-        const cookies = loginRes.headers['set-cookie'];
-        const cookieHeader = cookies ? cookies.map(c => c.split(';')[0]).join('; ') : '';
-        
-        // Request the actual report from dev.igps.io
-        const apiUrl = type === 'km' 
-            ? 'http://dev.igps.io/trichy/api/dtp_get_latlng_km.php'
-            : 'http://dev.igps.io/trichy/api/get_jarduration_api.php';
-            
-        const reportRes = await axios.post(apiUrl, {
-            imei: "ALL",
-            start: type === 'km' ? start : `${start} 00:00:00`,
-            end1: type === 'km' ? end : `${end} 23:59:59`,
-            district: "ALL",
-            panch: "ALL",
-            subzone: "ALL",
-            username: "trichy",
-            diff: "31"
-        }, {
-            headers: {
-                'Content-Type': 'application/json',
-                'Cookie': cookieHeader
-            }
-        });
-        
-        return res.json(reportRes.data);
-    } catch (e) {
-        console.error(`Failed to fetch remote ${type} report:`, e.message);
-        return res.status(500).json({ error: e.message });
-    }
-});
+
 
 app.post('/api/run-travel-report', (req, res) => {
     const { imeis, date, hours, speed, hours_only } = req.body;
