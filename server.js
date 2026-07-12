@@ -3,7 +3,6 @@ const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
 const mqtt = require('mqtt');
-const axios = require('axios');
 const engine = require('./spoofer');
 const { runTravelReport } = require('./travel_report_spoofer');
 
