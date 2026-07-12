@@ -3,6 +3,7 @@ const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
 const mqtt = require('mqtt');
+const axios = require('axios');
 const engine = require('./spoofer');
 const { runTravelReport } = require('./travel_report_spoofer');
 
@@ -248,6 +249,57 @@ app.post('/api/clear-logs', (req, res) => {
     engine.logs = [];
     res.json({ success: true, message: 'Telemetry logs cleared on server.' });
 });
+app.post('/api/report/:type', async (req, res) => {
+    const { type } = req.params;
+    const { start, end } = req.body;
+    
+    if (!start || !end) {
+        return res.status(400).json({ error: "Start and end dates are required." });
+    }
+    
+    try {
+        // Authenticate with dev.igps.io
+        const loginRes = await axios.post('http://dev.igps.io/trichy/api/govt_api.php', 
+            'action=verify&username=trichy&password=tmc%40123',
+            {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                }
+            }
+        );
+        
+        // Extract cookies from login response
+        const cookies = loginRes.headers['set-cookie'];
+        const cookieHeader = cookies ? cookies.map(c => c.split(';')[0]).join('; ') : '';
+        
+        // Request the actual report from dev.igps.io
+        const apiUrl = type === 'km' 
+            ? 'http://dev.igps.io/trichy/api/dtp_get_latlng_km.php'
+            : 'http://dev.igps.io/trichy/api/get_jarduration_api.php';
+            
+        const reportRes = await axios.post(apiUrl, {
+            imei: "ALL",
+            start: type === 'km' ? start : `${start} 00:00:00`,
+            end1: type === 'km' ? end : `${end} 23:59:59`,
+            district: "ALL",
+            panch: "ALL",
+            subzone: "ALL",
+            username: "trichy",
+            diff: "31"
+        }, {
+            headers: {
+                'Content-Type': 'application/json',
+                'Cookie': cookieHeader
+            }
+        });
+        
+        return res.json(reportRes.data);
+    } catch (e) {
+        console.error(`Failed to fetch remote ${type} report:`, e.message);
+        return res.status(500).json({ error: e.message });
+    }
+});
+
 app.post('/api/run-travel-report', (req, res) => {
     const { imeis, date, hours, speed, hours_only } = req.body;
     if (!imeis || !date) {

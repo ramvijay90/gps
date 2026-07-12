@@ -654,25 +654,25 @@ document.addEventListener('DOMContentLoaded', () => {
         tbody.innerHTML = '<tr><td colspan="5" style="padding: 12px; text-align: center;">Generating report...</td></tr>';
         
         try {
-            const resV = await fetch('/api/vehicles');
-            const vehicles = await resV.json();
+            // Call the new backend proxy endpoint which fetches live data from dev.igps.io
+            const res = await fetch(`/api/report/${type}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ start: fromDateStr, end: toDateStr })
+            });
+            const data = await res.json();
             
-            const resH = await fetch('/api/history');
-            const history = await resH.json();
-            
-            const d1 = new Date(fromDateStr);
-            const d2 = new Date(toDateStr);
-            const datesList = [];
-            let temp = new Date(d1);
-            while (temp <= d2) {
-                datesList.push(temp.toISOString().split('T')[0]);
-                temp.setDate(temp.getDate() + 1);
+            if (!Array.isArray(data) || data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="padding: 12px; text-align: center;">No vehicles found.</td></tr>';
+                return;
             }
             
-            if (datesList.length > 31) {
-                alert("Maximum report window is 31 days.");
-                tbody.innerHTML = '<tr><td colspan="5" style="padding: 12px; text-align: center; color: red;">Please select a date range <= 31 days.</td></tr>';
-                return;
+            // Format dates list from the response (in "DD-MM-YYYY" format)
+            const datesList = [];
+            if (data[0] && Array.isArray(data[0].val)) {
+                data[0].val.forEach(dStr => {
+                    datesList.push(dStr);
+                });
             }
             
             let headerHtml = `<tr>
@@ -684,7 +684,7 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             datesList.forEach(dt => {
                 const parts = dt.split('-');
-                const d = parseInt(parts[2]);
+                const d = parseInt(parts[0]);
                 const m = parseInt(parts[1]);
                 headerHtml += `<th>${d}/${m}</th>`;
             });
@@ -694,77 +694,52 @@ document.addEventListener('DOMContentLoaded', () => {
             tbody.innerHTML = '';
             const reportRows = [];
             
-            vehicles.forEach((v, index) => {
-                const imei = v.imei;
-                let totalVal = 0.0;
-                const dailyVals = [];
-                
-                datesList.forEach(dt => {
-                    const dayLogs = history.filter(item => item.imei === imei && item.date === dt);
-                    
-                    let val = 0.0;
-                    if (type === 'km') {
-                        dayLogs.forEach(log => {
-                            if (log.mode === 'travel_report' || log.mode === 'drive_km' || log.mode === 'drive') {
-                                val += parseFloat(log.added_km || 0);
-                            }
-                        });
-                        totalVal += val;
-                        dailyVals.push(val);
-                    } else {
-                        dayLogs.forEach(log => {
-                            if (log.mode === 'travel_hours' || log.mode === 'drive' || log.mode === 'drive_km') {
-                                val += parseFloat(log.target_hours || 0);
-                            }
-                        });
-                        totalVal += val;
-                        dailyVals.push(val);
-                    }
-                });
-                
-                let totalStr = "";
-                if (type === 'km') {
-                    totalStr = totalVal > 0 ? totalVal.toFixed(1) : "0.0";
-                } else {
-                    const h = Math.floor(totalVal);
-                    const m = Math.round((totalVal - h) * 60);
-                    totalStr = `${h}h ${m}m`;
-                }
-                
+            data.forEach((row, index) => {
                 const tr = document.createElement('tr');
                 tr.style.borderBottom = '1px solid #333';
                 
+                // Align daily values with datesList
+                const dailyVals = [];
+                datesList.forEach(dt => {
+                    const valIdx = row.dt ? row.dt.indexOf(dt) : -1;
+                    let val = "-";
+                    if (valIdx !== -1 && row.values && row.values[valIdx] !== undefined) {
+                        const rawVal = row.values[valIdx];
+                        if (type === 'km') {
+                            const parsed = parseFloat(rawVal);
+                            val = isNaN(parsed) ? rawVal : (parsed > 0 ? parsed.toFixed(1) : "-");
+                        } else {
+                            val = rawVal !== "0h 0m" ? rawVal : "-";
+                        }
+                    }
+                    dailyVals.push(val);
+                });
+                
+                let totalStr = row.total_run !== undefined ? row.total_run : "-";
+                if (type === 'km' && totalStr !== "-") {
+                    const parsedTotal = parseFloat(totalStr);
+                    totalStr = isNaN(parsedTotal) ? totalStr : parsedTotal.toFixed(1);
+                }
+                
                 let cellsHtml = `
                     <td style="padding: 10px 8px;">${index + 1}</td>
-                    <td style="padding: 10px 8px; font-weight: bold; color: #fff;">${v.vehicle_no}</td>
-                    <td style="padding: 10px 8px;">${v.type || '-'}</td>
-                    <td style="padding: 10px 8px;">${v.category || 'NA'}</td>
+                    <td style="padding: 10px 8px; font-weight: bold; color: #fff;">${row.vehicle_no}</td>
+                    <td style="padding: 10px 8px;">${row.type || '-'}</td>
+                    <td style="padding: 10px 8px;">${row.vehicle_category || 'NA'}</td>
                     <td style="padding: 10px 8px; font-weight: bold; color: #ffeb3b;">${totalStr}</td>
                 `;
                 
                 dailyVals.forEach(val => {
-                    let valStr = "";
-                    if (type === 'km') {
-                        valStr = val > 0 ? val.toFixed(1) : "-";
-                    } else {
-                        if (val > 0) {
-                            const h = Math.floor(val);
-                            const m = Math.round((val - h) * 60);
-                            valStr = `${h}h ${m}m`;
-                        } else {
-                            valStr = "-";
-                        }
-                    }
-                    cellsHtml += `<td style="padding: 10px 8px;">${valStr}</td>`;
+                    cellsHtml += `<td style="padding: 10px 8px;">${val}</td>`;
                 });
                 
                 tr.innerHTML = cellsHtml;
                 tbody.appendChild(tr);
                 
                 reportRows.push({
-                    vehicle: v.vehicle_no,
-                    type: v.type || '-',
-                    category: v.category || 'NA',
+                    vehicle: row.vehicle_no,
+                    type: row.type || '-',
+                    category: row.vehicle_category || 'NA',
                     total: totalStr,
                     daily: dailyVals
                 });
@@ -774,10 +749,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentKmReportData = { dates: datesList, rows: reportRows };
             } else {
                 currentHoursReportData = { dates: datesList, rows: reportRows };
-            }
-            
-            if (vehicles.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" style="padding: 12px; text-align: center;">No vehicles found.</td></tr>';
             }
             
         } catch (e) {
