@@ -149,8 +149,37 @@
                             No active shields.
                         </div>
                     </div>
+            </div>
+
+            <div class="card tasks-panel" style="margin-top: 1rem;">
+                <div class="log-header">
+                    <h2>🎮 Direct GPRS Command Console</h2>
+                </div>
+                <div style="display: flex; gap: 1rem; flex-direction: column; background: var(--bg-dark); padding: 1rem; border-radius: 8px; margin-top: 0.5rem;">
+                    <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
+                        <div style="flex: 1; min-width: 200px;">
+                            <label for="cmd-template" style="color: #ccc; font-size: 0.9rem; display: block; margin-bottom: 0.3rem;">Quick Template</label>
+                            <select id="cmd-template" style="width: 100%; background: #222; border: 1px solid #444; color: #fff; padding: 0.4rem; border-radius: 4px;">
+                                <option value="">-- Choose a command --</option>
+                                <option value="sleep123456 5">SinoTrack Sleep ON (5 mins)</option>
+                                <option value="nosleep123456">SinoTrack Sleep OFF</option>
+                                <option value="PARAM#">SinoTrack PARAM Check</option>
+                                <option value="STATUS#">SinoTrack STATUS Check</option>
+                                <option value="9400000">JCB/RealTech Engine Cut (Relay ON)</option>
+                                <option value="9410000">JCB/RealTech Resume Engine (Relay OFF)</option>
+                            </select>
+                        </div>
+                        <div style="flex: 2; min-width: 300px;">
+                            <label for="cmd-input" style="color: #ccc; font-size: 0.9rem; display: block; margin-bottom: 0.3rem;">Raw Command Payload</label>
+                            <input type="text" id="cmd-input" placeholder="Type custom command, e.g. sleep123456 5" style="width: 100%; background: #222; border: 1px solid #444; color: #fff; padding: 0.4rem; border-radius: 4px; box-sizing: border-box;">
+                        </div>
+                    </div>
+                    <div style="display: flex; justify-content: flex-end; margin-top: 0.5rem;">
+                        <button id="send-cmd-btn" class="btn btn-warning" style="background-color: #00bcd4; color: white;">Send GPRS Command</button>
+                    </div>
                 </div>
             </div>
+
             <div class="card tasks-panel" style="margin-top: 1rem;">
                 <div class="log-header">
                     <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">

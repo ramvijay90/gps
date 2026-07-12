@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
+const mqtt = require('mqtt');
 const engine = require('./spoofer');
 const { runTravelReport } = require('./travel_report_spoofer');
 
@@ -199,6 +200,58 @@ app.post('/api/run-travel-report', (req, res) => {
     });
     
     res.json({ success: true, message: `Started Auto Travel Report for ${imeis.length} vehicles.` });
+});
+
+app.post('/api/send-command', (req, res) => {
+    const { imeis, command } = req.body;
+    if (!imeis || !command) {
+        return res.json({ success: false, message: 'IMEI list and Command are required.' });
+    }
+    
+    let vehicles = [];
+    try {
+        vehicles = require('./vehicles.json');
+    } catch (e) {
+        console.error("Failed to load vehicles.json for commands:", e.message);
+    }
+    
+    console.log(`[CMD] Sending command "${command}" to ${imeis.length} vehicles...`);
+    
+    const client = mqtt.connect("mqtt://igps.io:1883", {
+        username: "realiot",
+        password: "realmqtt@123",
+        clientId: `mqttjs_cmd_${Math.random().toString(16).substr(2, 8)}`,
+        connectTimeout: 5000
+    });
+    
+    client.on('error', (err) => {
+        console.error("[CMD ERROR] MQTT Client Error:", err.message);
+    });
+    
+    client.on('connect', () => {
+        imeis.forEach(imei => {
+            const topic = `BB/${imei}/CMD`;
+            const v = vehicles.find(item => item.imei === imei);
+            const sim = (v && v.sim) ? v.sim : "1234567890";
+            
+            const random_prefix = Math.floor(10000 + Math.random() * 90000);
+            const payload = `DATA=${random_prefix}-ad$admin$${command},${sim}`;
+            
+            client.publish(topic, payload, (err) => {
+                if (err) {
+                    console.error(`[CMD ERROR] Failed to send to ${imei}:`, err.message);
+                } else {
+                    console.log(`[CMD SUCCESS] Sent to ${imei}: ${payload}`);
+                }
+            });
+        });
+        
+        setTimeout(() => {
+            client.end();
+        }, 1000);
+    });
+    
+    res.json({ success: true, message: `Command transmission started for ${imeis.length} vehicles.` });
 });
 
 app.listen(port, () => {

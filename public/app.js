@@ -362,5 +362,64 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
+    // GPRS Command Console
+    const cmdTemplate = document.getElementById('cmd-template');
+    const cmdInput = document.getElementById('cmd-input');
+    const sendCmdBtn = document.getElementById('send-cmd-btn');
+    
+    if (cmdTemplate && cmdInput) {
+        cmdTemplate.addEventListener('change', () => {
+            cmdInput.value = cmdTemplate.value;
+        });
+    }
+    
+    if (sendCmdBtn) {
+        sendCmdBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            
+            const selectedOptions = Array.from(vehicleSelect.selectedOptions);
+            const imeis = selectedOptions.map(opt => opt.value);
+            const cmdText = cmdInput.value.trim();
+            
+            if (imeis.length === 0) {
+                alert("Please select at least one vehicle to send commands to.");
+                return;
+            }
+            
+            if (!cmdText) {
+                alert("Please enter a command payload first.");
+                return;
+            }
+            
+            if (!confirm(`Are you sure you want to send command "${cmdText}" to ${imeis.length} vehicle(s)?`)) {
+                return;
+            }
+            
+            sendCmdBtn.disabled = true;
+            sendCmdBtn.textContent = "Sending...";
+            
+            try {
+                const res = await fetch('/api/send-command', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ imeis, command: cmdText })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    alert(data.message);
+                    addLogLine(`[CMD SENT] Command "${cmdText}" sent to ${imeis.length} vehicle(s).`);
+                } else {
+                    alert("Failed to send command: " + data.message);
+                }
+            } catch (err) {
+                alert("Network error sending command.");
+            } finally {
+                sendCmdBtn.disabled = false;
+                sendCmdBtn.textContent = "Send GPRS Command";
+            }
+        });
+    }
+    
     pollStatus();
 });
