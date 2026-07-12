@@ -300,10 +300,10 @@ class SpooferEngine {
                     start_date = new Date(start_date.getTime() - (config.target_hours * 3600000));
                     const broadcasts_per_day = Math.floor((config.target_hours * 3600) / 5);
                     
-                    const speed_ms = config.speed * (1000.0 / 3600.0);
-                    const distance_m_per_tick = speed_ms * 5.0;
+                    const speed_ms = 0;
+                    const distance_m_per_tick = 0;
                     
-                    this.log(`[${imei}] Injecting ${config.target_hours} hrs ending at: ${this.formatDateStr(start_date)}...`);
+                    this.log(`[${imei}] Injecting ${config.target_hours} hrs of Engine Hours ending at: ${this.formatDateStr(start_date)}...`);
                     
                     let total_odo = config.start_odo || 0.0;
                     let today_odo = config.start_today_odo || 0.0;
@@ -335,9 +335,6 @@ class SpooferEngine {
                         const current_time = new Date(start_date.getTime() + (i * 5000));
                         const time_str = this.formatDateStr(current_time);
                         
-                        const dist_km = distance_m_per_tick / 1000.0;
-                        total_odo += dist_km;
-                        today_odo += dist_km;
                         const odo_str = `${total_odo.toFixed(6)}-${today_odo.toFixed(6)}`;
                         
                         let lat = config.lat;
@@ -364,7 +361,9 @@ class SpooferEngine {
                         
                         const coord_str = `+${parseFloat(lat).toFixed(6)},+${parseFloat(lng).toFixed(6)}`;
                         
-                        const payload = `##,${imei},0,${time_str},${coord_str},${config.speed},${v_voltage.toFixed(1)},0,1,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,${v_voltage.toFixed(0)},3950,0,0-1-0-1-1,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
+                        // Injection parameters:
+                        // speed=0, ignition=0 (1-0-0-0-0), jcb_ac=1-1-1-1
+                        const payload = `##,${imei},0,${time_str},${coord_str},0,${v_voltage.toFixed(1)},0,0,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,${v_voltage.toFixed(0)},3950,0,1-0-0-0-0,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
                         client.publish(topic, payload);
                         await new Promise(r => setTimeout(r, 5)); // 5ms sleep
                     }
@@ -382,11 +381,11 @@ class SpooferEngine {
                     }
                     const final_coord_str = `+${parseFloat(final_lat).toFixed(6)},+${parseFloat(final_lng).toFixed(6)}`;
                     
-                    // speed=0, ignition=0 (1-0-0-0-0)
+                    // speed=0, ignition=0 (1-0-0-0-0), jcb_ac=0-0-0-0
                     const end_payload = `##,${imei},0,${final_time_str},${final_coord_str},0,${v_voltage.toFixed(1)},0,0,91.26,${final_odo_str},0-0,0-0,0-0,+0.0,0,0-0-0-0,2000-00-00 00:00:00,2000-00-00 00:00:00,${v_voltage.toFixed(0)},3950,0,1-0-0-0-0,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
                     client.publish(topic, end_payload);
                     
-                    this.log(`[${imei}] Sent final Ignition OFF packet. Finished Ghost Drive.`);
+                    this.log(`[${imei}] Sent final Engine Hours OFF packet. Finished Engine Hours Drive.`);
                     this.save_history(imei, "drive", total_odo - initial_odo, initial_odo, total_odo, config.target_hours, config.shield_hours || 0);
                     client.end();
                     resolve();
