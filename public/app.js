@@ -81,13 +81,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const vehicleSelect = document.getElementById('vehicle-select');
     const selectAllBtn = document.getElementById('select-all-btn');
     
+    const sleepTableBody = document.getElementById('sleep-manager-table-body');
+    
     async function loadVehicles() {
         try {
             const res = await fetch('/api/vehicles');
             const vehicles = await res.json();
             
+            // Render select dropdown
             vehicleSelect.innerHTML = '';
-            
             vehicles.forEach(v => {
                 const option = document.createElement('option');
                 option.value = v.imei;
@@ -95,9 +97,73 @@ document.addEventListener('DOMContentLoaded', () => {
                 vehicleSelect.appendChild(option);
             });
             
+            // Render Sleep Manager Table
+            if (sleepTableBody) {
+                sleepTableBody.innerHTML = '';
+                vehicles.forEach(v => {
+                    const tr = document.createElement('tr');
+                    tr.style.borderBottom = '1px solid #333';
+                    
+                    const isSleep = !!v.sleep_mode;
+                    const badgeColor = isSleep ? '#4caf50' : '#888';
+                    const badgeText = isSleep ? '🌙 Sleep Active' : '☀️ Normal (1m)';
+                    
+                    tr.innerHTML = `
+                        <td style="padding: 8px;">${v.vehicle_no}</td>
+                        <td style="padding: 8px; font-family: monospace;">${v.imei}</td>
+                        <td style="padding: 8px;"><span style="background: ${badgeColor}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; font-weight: bold;">${badgeText}</span></td>
+                        <td style="padding: 8px; text-align: right; display: flex; gap: 5px; justify-content: flex-end;">
+                            <button class="btn-toggle-sleep" data-imei="${v.imei}" data-enable="true" style="padding: 3px 8px; font-size: 0.75rem; background: #4caf50; border: none; border-radius: 4px; color: white; cursor: pointer; font-weight: bold; ${isSleep ? 'opacity: 0.5; cursor: not-allowed;' : ''}" ${isSleep ? 'disabled' : ''}>Sleep</button>
+                            <button class="btn-toggle-sleep" data-imei="${v.imei}" data-enable="false" style="padding: 3px 8px; font-size: 0.75rem; background: #f44336; border: none; border-radius: 4px; color: white; cursor: pointer; font-weight: bold; ${!isSleep ? 'opacity: 0.5; cursor: not-allowed;' : ''}" ${!isSleep ? 'disabled' : ''}>Normal</button>
+                        </td>
+                    `;
+                    sleepTableBody.appendChild(tr);
+                });
+                
+                // Add event listeners to sleep toggle buttons
+                document.querySelectorAll('.btn-toggle-sleep').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        e.preventDefault();
+                        const imei = btn.getAttribute('data-imei');
+                        const enable = btn.getAttribute('data-enable') === 'true';
+                        
+                        if (!confirm(`Are you sure you want to change sleep mode settings for this vehicle?`)) {
+                            return;
+                        }
+                        
+                        btn.disabled = true;
+                        btn.textContent = "...";
+                        
+                        try {
+                            const response = await fetch('/api/set-sleep-state', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ imei, enabled: enable })
+                            });
+                            const result = await response.json();
+                            if (result.success) {
+                                alert("Command sent successfully!");
+                                loadVehicles(); // Reload to refresh table status
+                            } else {
+                                alert("Failed to change sleep setting: " + result.message);
+                                btn.disabled = false;
+                                btn.textContent = enable ? "Sleep" : "Normal";
+                            }
+                        } catch (err) {
+                            alert("Network error.");
+                            btn.disabled = false;
+                            btn.textContent = enable ? "Sleep" : "Normal";
+                        }
+                    });
+                });
+            }
+            
         } catch (e) {
             console.error("Failed to load vehicles", e);
             vehicleSelect.innerHTML = '<option value="">Failed to load vehicles</option>';
+            if (sleepTableBody) {
+                sleepTableBody.innerHTML = '<tr><td colspan="4" style="padding: 8px; text-align: center; color: red;">Error loading vehicles</td></tr>';
+            }
         }
     }
     

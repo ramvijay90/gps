@@ -318,6 +318,100 @@ app.post('/api/send-command', (req, res) => {
     res.json({ success: true, message: `Command transmission started for ${imeis.length} vehicles.` });
 });
 
+app.post('/api/set-sleep-state', (req, res) => {
+    const { imei, enabled } = req.body;
+    if (!imei) {
+        return res.json({ success: false, message: 'IMEI is required.' });
+    }
+    
+    // Read and update vehicles.json
+    let vehicles = [];
+    const VEHICLES_FILE = path.join(__dirname, 'vehicles.json');
+    try {
+        vehicles = JSON.parse(fs.readFileSync(VEHICLES_FILE, 'utf8'));
+        const v = vehicles.find(item => item.imei === imei);
+        if (v) {
+            v.sleep_mode = !!enabled;
+            fs.writeFileSync(VEHICLES_FILE, JSON.stringify(vehicles, null, 4));
+        } else {
+            return res.json({ success: false, message: 'Vehicle not found.' });
+        }
+    } catch (e) {
+        console.error("Error updating vehicles.json for sleep mode:", e.message);
+        return res.json({ success: false, message: 'Failed to update vehicle configuration.' });
+    }
+    
+    // Formulate GPRS command: TIMER,10,36000# to enable sleep, TIMER,10,60# to disable
+    const command = enabled ? "TIMER,10,36000#" : "TIMER,10,60#";
+    engine.log(`[SLEEP SETTING] Toggling sleep mode ${enabled ? 'ON' : 'OFF'} for vehicle ${imei}...`);
+    
+    const client = mqtt.connect("mqtt://igps.io:1883", {
+        username: "realiot",
+        password: "realmqtt@123",
+        clientId: `mqttjs_sleep_${Math.random().toString(16).substr(2, 8)}`,
+        connectTimeout: 5000
+    });
+    
+    client.on('error', (err) => {
+        console.error("[SLEEP ERROR] MQTT Client Error:", err.message);
+        engine.log(`[SLEEP ERROR] MQTT Error: ${err.message}`);
+    });
+    
+    client.on('connect', () => {
+        const liveTopic = `BB/${imei}/LIVE`;
+        const baseTopic = `BB/${imei}`;
+        
+        // Subscribe to responses
+        client.subscribe(baseTopic);
+        client.subscribe(liveTopic);
+        
+        const cmdTopic = `BB/${imei}/CMD`;
+        const v = vehicles.find(item => item.imei === imei);
+        let phone = "9043527299";
+        if (v && v.sim && v.sim.length === 10 && !isNaN(v.sim)) {
+            phone = v.sim;
+        }
+        
+        const random_prefix = Math.floor(10000 + Math.random() * 90000);
+        const payload = `DATA=${random_prefix}-ad$trichy$${command},${phone}`;
+        
+        client.publish(cmdTopic, payload, (err) => {
+            if (err) {
+                console.error(`[SLEEP ERROR] Failed to publish command to ${imei}:`, err.message);
+                engine.log(`[SLEEP ERROR] Failed to send: ${err.message}`);
+            } else {
+                console.log(`[SLEEP SUCCESS] Command published to ${imei}: ${payload}`);
+            }
+        });
+        
+        client.on('message', (topic, payload) => {
+            try {
+                const msgStr = payload.toString();
+                const parts = topic.split('/');
+                const isLive = parts[2] === 'LIVE';
+                
+                if (isLive || msgStr.includes('-ad') || (!msgStr.startsWith('##') && !msgStr.startsWith('%%'))) {
+                    let displayMsg = msgStr;
+                    if (msgStr.includes('-ad')) {
+                        const parts = msgStr.split(',');
+                        const ackPart = parts.find(p => p.includes('-ad'));
+                        displayMsg = `Command Ack received: ${ackPart || 'OK'}`;
+                    }
+                    console.log(`[SLEEP RESPONSE] [${v.vehicle_no}] ${displayMsg}`);
+                    engine.log(`[SLEEP RESPONSE] [${v.vehicle_no}] ${displayMsg}`);
+                }
+            } catch (err) {}
+        });
+        
+        // Close client after 30 seconds
+        setTimeout(() => {
+            client.end();
+        }, 30000);
+    });
+    
+    res.json({ success: true, message: `Command "${command}" published successfully to device.` });
+});
+
 app.listen(port, () => {
     console.log(`Node.js Admin Dashboard running at http://localhost:${port}`);
 });

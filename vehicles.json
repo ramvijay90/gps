@@ -5,7 +5,8 @@
         "sim": "5754182054552",
         "model": "",
         "type": "Jcb/Hitachi",
-        "voltage": 12.7
+        "voltage": 12.7,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "HITACHI 889 RIG",
@@ -13,14 +14,16 @@
         "sim": "5754181966335",
         "model": "",
         "type": "Hyundai",
-        "voltage": 25.7
+        "voltage": 25.7,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "NEW 890 Hitachi RIG",
         "imei": "869867035014598",
         "sim": "5754180510717",
         "model": "",
-        "voltage": 25.0
+        "voltage": 25.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BA 7417 RIG",
@@ -28,7 +31,8 @@
         "sim": "5754182054564",
         "model": "",
         "type": "Jet rodder",
-        "voltage": 25.5
+        "voltage": 25.5,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BD 9694",
@@ -36,7 +40,8 @@
         "sim": "5754181966242",
         "model": "",
         "type": "Dog",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BE 1089",
@@ -44,14 +49,16 @@
         "sim": "5754181966231",
         "model": "",
         "type": "Dog",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BH 8505 RIG",
         "imei": "862942074961020",
         "sim": "5754181966404",
         "model": "",
-        "voltage": 25.0
+        "voltage": 25.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BH 8524 RIG",
@@ -59,7 +66,8 @@
         "sim": "5754181966395",
         "model": "",
         "type": "Jcb/Hitachi",
-        "voltage": 14.3
+        "voltage": 14.3,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BJ 8650 RIG",
@@ -67,7 +75,8 @@
         "sim": "5754181966399",
         "model": "",
         "type": "Desludging",
-        "voltage": 12.4
+        "voltage": 12.4,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BJ 8669 RIG",
@@ -75,7 +84,8 @@
         "sim": "5754181966389",
         "model": "",
         "type": "Desludging",
-        "voltage": 12.6
+        "voltage": 12.6,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BK 9210",
@@ -83,14 +93,16 @@
         "sim": "5754181966309",
         "model": "",
         "type": "Tanker Lorry",
-        "voltage": 25.3
+        "voltage": 25.3,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BL 4831 RIG",
         "imei": "862942074965344",
         "sim": "5754182054549",
         "model": "",
-        "voltage": 25.0
+        "voltage": 25.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BL 9731",
@@ -98,7 +110,8 @@
         "sim": "5754181966319",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BL 9745",
@@ -106,7 +119,8 @@
         "sim": "5754181966315",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 0507",
@@ -114,7 +128,8 @@
         "sim": "5754181966323",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 0518",
@@ -122,7 +137,8 @@
         "sim": "5754181966232",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 0574",
@@ -130,7 +146,8 @@
         "sim": "5754181966235",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 6.0
+        "voltage": 6.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 0672",
@@ -138,7 +155,8 @@
         "sim": "5754181966348",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 6.0
+        "voltage": 6.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 0673",
@@ -146,7 +164,8 @@
         "sim": "5754181966236",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 0680",
@@ -154,7 +173,8 @@
         "sim": "5754181966233",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 0682",
@@ -162,7 +182,8 @@
         "sim": "5754181966238",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 6.0
+        "voltage": 6.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 0689",
@@ -170,7 +191,8 @@
         "sim": "5754181966209",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 0695",
@@ -178,14 +200,16 @@
         "sim": "5754181966351",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 0698",
         "imei": "869925071607541",
         "sim": "5754181966332",
         "model": "",
-        "voltage": 25.0
+        "voltage": 25.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 0703",
@@ -193,7 +217,8 @@
         "sim": "5754181966243",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 0713",
@@ -201,14 +226,16 @@
         "sim": "5754181966365",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 0714",
         "imei": "869925071585572",
         "sim": "5754181966357",
         "model": "",
-        "voltage": 25.0
+        "voltage": 25.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 0717",
@@ -216,7 +243,8 @@
         "sim": "5754181966355",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 0720",
@@ -224,7 +252,8 @@
         "sim": "5754181966353",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 0740",
@@ -232,7 +261,8 @@
         "sim": "5754181966333",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 0742",
@@ -240,7 +270,8 @@
         "sim": "5754181966359",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 0743",
@@ -248,7 +279,8 @@
         "sim": "5754181966244",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 0750",
@@ -256,7 +288,8 @@
         "sim": "5754181966387",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 0760",
@@ -264,7 +297,8 @@
         "sim": "5754181966349",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 0761",
@@ -272,7 +306,8 @@
         "sim": "5754182054546",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 0769",
@@ -280,7 +315,8 @@
         "sim": "5754181966361",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 0770",
@@ -288,7 +324,8 @@
         "sim": "5754181966390",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 6.0
+        "voltage": 6.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 0771",
@@ -296,7 +333,8 @@
         "sim": "5754181966210",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 6.0
+        "voltage": 6.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 0774",
@@ -304,7 +342,8 @@
         "sim": "5754181966321",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 0775",
@@ -312,7 +351,8 @@
         "sim": "5754181966322",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 0778",
@@ -320,7 +360,8 @@
         "sim": "5754182054545",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 0779",
@@ -328,7 +369,8 @@
         "sim": "5754181966207",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 0784",
@@ -336,7 +378,8 @@
         "sim": "5754181966358",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 0797",
@@ -344,7 +387,8 @@
         "sim": "5754181966211",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 1003",
@@ -352,7 +396,8 @@
         "sim": "5754181966356",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 1009",
@@ -360,7 +405,8 @@
         "sim": "5754181966362",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 1014",
@@ -368,7 +414,8 @@
         "sim": "5754181966206",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 1027",
@@ -376,7 +423,8 @@
         "sim": "5754181966363",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 1028",
@@ -384,7 +432,8 @@
         "sim": "5754181966229",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 1029",
@@ -392,7 +441,8 @@
         "sim": "5754182054535",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 1031",
@@ -400,7 +450,8 @@
         "sim": "5754181966364",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 1035",
@@ -408,7 +459,8 @@
         "sim": "5754182054548",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 1044",
@@ -416,7 +468,8 @@
         "sim": "5754181966330",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 1051",
@@ -424,7 +477,8 @@
         "sim": "5754181966327",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 1057",
@@ -432,7 +486,8 @@
         "sim": "5754181966314",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 1059",
@@ -440,7 +495,8 @@
         "sim": "5754181966352",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 1063",
@@ -448,7 +504,8 @@
         "sim": "5754181966230",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 6.0
+        "voltage": 6.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 1066",
@@ -456,7 +513,8 @@
         "sim": "5754181966239",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 1075",
@@ -464,7 +522,8 @@
         "sim": "5754181966237",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 1076",
@@ -472,7 +531,8 @@
         "sim": "5754181966208",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 1085",
@@ -480,7 +540,8 @@
         "sim": "5754181966347",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 6.0
+        "voltage": 6.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 1093",
@@ -488,7 +549,8 @@
         "sim": "5754181966350",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 1162",
@@ -496,7 +558,8 @@
         "sim": "5754181966325",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 1163",
@@ -504,7 +567,8 @@
         "sim": "5754181966339",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 1172",
@@ -512,7 +576,8 @@
         "sim": "5754181966245",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 1174",
@@ -520,7 +585,8 @@
         "sim": "5754181966346",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 1185",
@@ -528,7 +594,8 @@
         "sim": "5754181966234",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 1189",
@@ -536,7 +603,8 @@
         "sim": "5754181966354",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 1191",
@@ -544,7 +612,8 @@
         "sim": "5754181966240",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 1192",
@@ -552,7 +621,8 @@
         "sim": "5754181966338",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 1193",
@@ -560,7 +630,8 @@
         "sim": "5754181966360",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 1198",
@@ -568,7 +639,8 @@
         "sim": "5754181966345",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 1208",
@@ -576,7 +648,8 @@
         "sim": "5754182054547",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 1210",
@@ -584,14 +657,16 @@
         "sim": "5754181966386",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 1211",
         "imei": "869925071610073",
         "sim": "5754181966318",
         "model": "",
-        "voltage": 25.0
+        "voltage": 25.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BM 1216",
@@ -599,7 +674,8 @@
         "sim": "5754181966388",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 BS 1090",
@@ -607,7 +683,8 @@
         "sim": "5754181966329",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CA 3012 RIG",
@@ -615,7 +692,8 @@
         "sim": "5754181966215",
         "model": "",
         "type": "Sand Sweeper",
-        "voltage": 25.0
+        "voltage": 25.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CA 3022 RIG",
@@ -623,14 +701,16 @@
         "sim": "5754181966220",
         "model": "",
         "type": "Sand Sweeper",
-        "voltage": 25.0
+        "voltage": 25.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CB 1352 RIG",
         "imei": "862942074968058",
         "sim": "5754181966326",
         "model": "",
-        "voltage": 25.0
+        "voltage": 25.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CB 3123 RIG",
@@ -638,7 +718,8 @@
         "sim": "5754182054531",
         "model": "",
         "type": "Mini desilting",
-        "voltage": 12.5
+        "voltage": 12.5,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CB 3137 RIG",
@@ -646,7 +727,8 @@
         "sim": "5754182054532",
         "model": "",
         "type": "Mini desilting",
-        "voltage": 12.7
+        "voltage": 12.7,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CB 3178 RIG",
@@ -654,7 +736,8 @@
         "sim": "5754182054533",
         "model": "",
         "type": "Mini desilting",
-        "voltage": 12.6
+        "voltage": 12.6,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CB 3196 RIG",
@@ -662,7 +745,8 @@
         "sim": "5754182054529",
         "model": "",
         "type": "Mini desilting",
-        "voltage": 12.4
+        "voltage": 12.4,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CB 3244 RIG",
@@ -670,7 +754,8 @@
         "sim": "5754182054528",
         "model": "",
         "type": "Mini desilting",
-        "voltage": 12.3
+        "voltage": 12.3,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CB 3265 RIG",
@@ -678,7 +763,8 @@
         "sim": "5754181966218",
         "model": "",
         "type": "Mini desilting",
-        "voltage": 12.5
+        "voltage": 12.5,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CB 3289 RIG",
@@ -686,7 +772,8 @@
         "sim": "5754182054525",
         "model": "",
         "type": "Mini desilting",
-        "voltage": 12.5
+        "voltage": 12.5,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CB 3299 RIG",
@@ -694,14 +781,16 @@
         "sim": "5754182054527",
         "model": "",
         "type": "Mini desilting",
-        "voltage": 12.9
+        "voltage": 12.9,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CB 3708 RIG NEW",
         "imei": "869867035051194",
         "sim": "5754182054536",
         "model": "",
-        "voltage": 25.0
+        "voltage": 25.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CB 3857 RIG",
@@ -709,7 +798,8 @@
         "sim": "5754181966396",
         "model": "",
         "type": "Jcb/Hitachi",
-        "voltage": 12.6
+        "voltage": 12.6,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CB 3858 RIG",
@@ -717,7 +807,8 @@
         "sim": "5754181966343",
         "model": "",
         "type": "Jcb/Hitachi",
-        "voltage": 12.3
+        "voltage": 12.3,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CB 5526 RIG",
@@ -725,7 +816,8 @@
         "sim": "5754182054561",
         "model": "",
         "type": "Tractor",
-        "voltage": 12.4
+        "voltage": 12.4,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CB 5554 RIG",
@@ -733,7 +825,8 @@
         "sim": "5754181966216",
         "model": "",
         "type": "Tractor",
-        "voltage": 12.6
+        "voltage": 12.6,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CB 5586 RIG",
@@ -741,7 +834,8 @@
         "sim": "5754182054530",
         "model": "",
         "type": "Tractor",
-        "voltage": 12.3
+        "voltage": 12.3,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CB 7846",
@@ -749,7 +843,8 @@
         "sim": "5754181966337",
         "model": "",
         "type": "Tipper",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CB 7849",
@@ -757,7 +852,8 @@
         "sim": "5754181966328",
         "model": "",
         "type": "Tipper",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CB 7894",
@@ -765,7 +861,8 @@
         "sim": "5754181966331",
         "model": "",
         "type": "Tipper",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CB 7895",
@@ -773,7 +870,8 @@
         "sim": "5754181966219",
         "model": "",
         "type": "Tipper",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CB 8141 RIG",
@@ -781,14 +879,16 @@
         "sim": "5754181966391",
         "model": "",
         "type": "Jcb/Hitachi",
-        "voltage": 14.1
+        "voltage": 14.1,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CB 8159 RIG",
         "imei": "867409074503389",
         "sim": "5754181966393",
         "model": "",
-        "voltage": 25.0
+        "voltage": 25.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CB 9706",
@@ -796,7 +896,8 @@
         "sim": "5754182054556",
         "model": "",
         "type": "Tipper",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CB 9709 New 2",
@@ -804,7 +905,8 @@
         "sim": "5754181966212",
         "model": "",
         "type": "Tipper",
-        "voltage": 25.6
+        "voltage": 25.6,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CB 9712",
@@ -812,7 +914,8 @@
         "sim": "5754181966225",
         "model": "",
         "type": "Tipper",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CB 9713",
@@ -820,7 +923,8 @@
         "sim": "5754181966227",
         "model": "",
         "type": "Dog",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CB 9716",
@@ -828,7 +932,8 @@
         "sim": "5754181966341",
         "model": "",
         "type": "Tipper",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CB 9722",
@@ -836,7 +941,8 @@
         "sim": "5754181966228",
         "model": "",
         "type": "Dog",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CB 9753",
@@ -844,7 +950,8 @@
         "sim": "5754182054557",
         "model": "",
         "type": "Tipper",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CB 9780",
@@ -852,7 +959,8 @@
         "sim": "5754181966241",
         "model": "",
         "type": "Dog",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CC 1320 RIG",
@@ -860,7 +968,8 @@
         "sim": "5754181966340",
         "model": "",
         "type": "Mini Jet",
-        "voltage": 12.4
+        "voltage": 12.4,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CC 1624 RIG",
@@ -868,7 +977,8 @@
         "sim": "5754181966334",
         "model": "",
         "type": "Jet rodder",
-        "voltage": 25.6
+        "voltage": 25.6,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CC 1627 RIG NEW",
@@ -876,14 +986,16 @@
         "sim": "5754180685891",
         "model": "",
         "type": "Jet rodder",
-        "voltage": 25.8
+        "voltage": 25.8,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CC 1639 New",
         "imei": "867409074529814",
         "sim": "5754181966316",
         "model": "",
-        "voltage": 25.0
+        "voltage": 25.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CC 1651 RIG",
@@ -891,7 +1003,8 @@
         "sim": "5754181966336",
         "model": "",
         "type": "Jet rodder",
-        "voltage": 25.5
+        "voltage": 25.5,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CC 1667",
@@ -899,7 +1012,8 @@
         "sim": "5754181966312",
         "model": "",
         "type": "Tanker Lorry",
-        "voltage": 25.6
+        "voltage": 25.6,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CC 1668 RIG",
@@ -907,7 +1021,8 @@
         "sim": "5754181966398",
         "model": "",
         "type": "Jet rodder",
-        "voltage": 25.1
+        "voltage": 25.1,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CC 1689",
@@ -915,7 +1030,8 @@
         "sim": "5754181966311",
         "model": "",
         "type": "Tanker Lorry",
-        "voltage": 25.8
+        "voltage": 25.8,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CC 1699",
@@ -923,7 +1039,8 @@
         "sim": "5754181966405",
         "model": "",
         "type": "Tanker Lorry",
-        "voltage": 25.9
+        "voltage": 25.9,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CC 2014 RIG",
@@ -931,7 +1048,8 @@
         "sim": "5754182054551",
         "model": "",
         "type": "Drain silt Removal",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CC 2032 RIG",
@@ -939,7 +1057,8 @@
         "sim": "5754181966306",
         "model": "",
         "type": "Drain silt Removal",
-        "voltage": 12.4
+        "voltage": 12.4,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CC 2081 RIG",
@@ -947,7 +1066,8 @@
         "sim": "5754181966213",
         "model": "",
         "type": "Drain silt Removal",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CC 2090",
@@ -955,7 +1075,8 @@
         "sim": "5754182054553",
         "model": "",
         "type": "Drain silt Removal",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CC 3038 RIG",
@@ -963,7 +1084,8 @@
         "sim": "5754182054554",
         "model": "",
         "type": "Mini Jet",
-        "voltage": 12.6
+        "voltage": 12.6,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CC 3039 RIG",
@@ -971,7 +1093,8 @@
         "sim": "5754181966403",
         "model": "",
         "type": "Mini Jet",
-        "voltage": 12.7
+        "voltage": 12.7,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CC 3047 RIG",
@@ -979,7 +1102,8 @@
         "sim": "5754181966400",
         "model": "",
         "type": "Mini Jet",
-        "voltage": 12.2
+        "voltage": 12.2,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CC 3049 RIG",
@@ -987,7 +1111,8 @@
         "sim": "5754181966401",
         "model": "",
         "type": "Mini Jet",
-        "voltage": 12.4
+        "voltage": 12.4,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CC 8109 RIG",
@@ -995,7 +1120,8 @@
         "sim": "5754181966217",
         "model": "",
         "type": "Cattle catcher",
-        "voltage": 12.7
+        "voltage": 12.7,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CC 8146 RIG",
@@ -1003,7 +1129,8 @@
         "sim": "5754181966214",
         "model": "",
         "type": "Cattle catcher",
-        "voltage": 12.4
+        "voltage": 12.4,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CD 0576 RIG",
@@ -1011,7 +1138,8 @@
         "sim": "5754181966392",
         "model": "",
         "type": "Jcb/Hitachi",
-        "voltage": 12.9
+        "voltage": 12.9,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CE 3685 RIG",
@@ -1019,7 +1147,8 @@
         "sim": "5754181966222",
         "model": "",
         "type": "Mini desilting",
-        "voltage": 12.8
+        "voltage": 12.8,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CE 3688 RIG",
@@ -1027,7 +1156,8 @@
         "sim": "5754181966221",
         "model": "",
         "type": "Mini desilting",
-        "voltage": 11.6
+        "voltage": 11.6,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CE 3764 RIG",
@@ -1035,7 +1165,8 @@
         "sim": "5754181966223",
         "model": "",
         "type": "Mini desilting",
-        "voltage": 12.7
+        "voltage": 12.7,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 45 CE 3792 RIG",
@@ -1043,7 +1174,8 @@
         "sim": "5754181966224",
         "model": "",
         "type": "Mini desilting",
-        "voltage": 12.7
+        "voltage": 12.7,
+        "sleep_mode": false
     },
     {
         "vehicle_no": "TN 56 BM 0549",
@@ -1051,6 +1183,7 @@
         "sim": "5754181966324",
         "model": "",
         "type": "Lcv/Tata Ace",
-        "voltage": 12.0
+        "voltage": 12.0,
+        "sleep_mode": false
     }
 ]

@@ -183,6 +183,27 @@
 
             <div class="card tasks-panel" style="margin-top: 1rem;">
                 <div class="log-header">
+                    <h2>🌙 Vehicle Sleep Mode Manager</h2>
+                </div>
+                <div style="overflow-y: auto; max-height: 300px; margin-top: 10px;">
+                    <table style="width: 100%; text-align: left; border-collapse: collapse; font-size: 0.9rem;">
+                        <thead>
+                            <tr style="border-bottom: 1px solid #444;">
+                                <th style="padding: 8px;">Vehicle No</th>
+                                <th style="padding: 8px;">IMEI</th>
+                                <th style="padding: 8px;">Current State</th>
+                                <th style="padding: 8px; text-align: right;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sleep-manager-table-body" style="color: #aaa;">
+                            <tr><td colspan="4" style="padding: 8px; text-align: center;">Loading vehicles...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card tasks-panel" style="margin-top: 1rem;">
+                <div class="log-header">
                     <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
                         <h2>Spoofing History Log</h2>
                         <button id="btn-clear-history" class="btn btn-secondary" style="padding: 5px 10px; font-size: 0.8rem; background-color: #f44336; border: none;">Clear History</button>
