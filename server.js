@@ -12,6 +12,35 @@ const SCHEDULED_FILE = path.join(__dirname, '..', 'scheduled_jobs.json');
 const HISTORY_FILE = path.join(__dirname, '..', 'history.json');
 const SLEEP_CONFIGS_FILE = path.join(__dirname, '..', 'sleep_configs.json');
 
+// Auto-restore backup migration: Copy files from hostinger_deployment to parent folder if missing or empty
+[
+    { parent: SCHEDULED_FILE, local: path.join(__dirname, 'scheduled_jobs.json') },
+    { parent: HISTORY_FILE, local: path.join(__dirname, 'history.json') },
+    { parent: SLEEP_CONFIGS_FILE, local: path.join(__dirname, 'sleep_configs.json') }
+].forEach(pair => {
+    try {
+        if (fs.existsSync(pair.local)) {
+            let shouldCopy = false;
+            if (!fs.existsSync(pair.parent)) {
+                shouldCopy = true;
+            } else {
+                const parentSize = fs.statSync(pair.parent).size;
+                const localSize = fs.statSync(pair.local).size;
+                // If parent file exists but is empty/dummy (e.g. less than 10 bytes like "[]" or ""), and local is larger
+                if (parentSize < 10 && localSize > parentSize) {
+                    shouldCopy = true;
+                }
+            }
+            if (shouldCopy) {
+                console.log(`Auto-restoring/moving ${path.basename(pair.local)} to parent directory...`);
+                fs.copyFileSync(pair.local, pair.parent);
+            }
+        }
+    } catch (err) {
+        console.error(`Failed to auto-restore ${path.basename(pair.local)}:`, err.message);
+    }
+});
+
 app.use(cors());
 app.use(express.json());
 // Serve the frontend UI exactly like Flask's "static" folder
