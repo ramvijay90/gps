@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
+const path = require('path');
 const mqtt = require('mqtt');
 const engine = require('./spoofer');
 const { runTravelReport } = require('./travel_report_spoofer');
