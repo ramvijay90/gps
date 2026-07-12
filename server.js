@@ -230,27 +230,42 @@ app.post('/api/send-command', (req, res) => {
     });
     
     client.on('connect', () => {
-        // Subscribe to LIVE topics for all target vehicles to capture responses
+        // Subscribe to both base topic BB/IMEI and subtopic BB/IMEI/LIVE for all target vehicles
         imeis.forEach(imei => {
+            const baseTopic = `BB/${imei}`;
             const liveTopic = `BB/${imei}/LIVE`;
+            
+            client.subscribe(baseTopic, (err) => {
+                if (err) {
+                    console.error(`[CMD ERROR] Failed to subscribe to base response topic for ${imei}:`, err.message);
+                } else {
+                    console.log(`[CMD] Listening on: ${baseTopic}`);
+                }
+            });
+
             client.subscribe(liveTopic, (err) => {
                 if (err) {
-                    console.error(`[CMD ERROR] Failed to subscribe to response topic for ${imei}:`, err.message);
+                    console.error(`[CMD ERROR] Failed to subscribe to live response topic for ${imei}:`, err.message);
                 } else {
-                    console.log(`[CMD] Listening for responses on: ${liveTopic}`);
-                    engine.log(`[CMD] Listening for responses on: ${liveTopic}`);
+                    console.log(`[CMD] Listening on: ${liveTopic}`);
+                    engine.log(`[CMD] Listening for replies on: ${liveTopic}`);
                 }
             });
         });
 
-        // Publish the GPRS commands
+        // Publish the GPRS commands using the validated session parameters (trichy / 10-digit number)
         imeis.forEach(imei => {
             const topic = `BB/${imei}/CMD`;
             const v = vehicles.find(item => item.imei === imei);
-            const sim = (v && v.sim) ? v.sim : "1234567890";
+            
+            // Check if vehicle has a valid 10-digit mobile number, otherwise default to a valid user mobile
+            let phone = "9043527299";
+            if (v && v.sim && v.sim.length === 10 && !isNaN(v.sim)) {
+                phone = v.sim;
+            }
             
             const random_prefix = Math.floor(10000 + Math.random() * 90000);
-            const payload = `DATA=${random_prefix}-ad$admin$${command},${sim}`;
+            const payload = `DATA=${random_prefix}-ad$trichy$${command},${phone}`;
             
             client.publish(topic, payload, (err) => {
                 if (err) {
@@ -266,14 +281,20 @@ app.post('/api/send-command', (req, res) => {
         client.on('message', (topic, payload) => {
             try {
                 const msgStr = payload.toString();
-                const imei = topic.split('/')[1];
+                const parts = topic.split('/');
+                const imei = parts[1];
+                const isLive = parts[2] === 'LIVE';
                 
                 // Get vehicle name if available
                 const v = vehicles.find(item => item.imei === imei);
                 const name = v ? v.vehicle_no : imei;
                 
-                console.log(`[CMD RESPONSE] [${name}] ${msgStr}`);
-                engine.log(`[CMD RESPONSE] [${name}] ${msgStr}`);
+                // Filter out standard GPS telemetry payloads on the base topic (e.g. ##,862...)
+                // to avoid flooding the feed, but capture actual text responses (e.g. status status, OK, sleep ok, etc.)
+                if (isLive || (!msgStr.startsWith('##') && !msgStr.startsWith('%%'))) {
+                    console.log(`[CMD RESPONSE] [${name}] ${msgStr}`);
+                    engine.log(`[CMD RESPONSE] [${name}] ${msgStr}`);
+                }
             } catch (err) {
                 console.error("[CMD RESPONSE ERROR] Error parsing response:", err.message);
             }
