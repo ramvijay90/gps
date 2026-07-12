@@ -202,6 +202,11 @@ app.delete('/api/history', (req, res) => {
         res.json({ success: false, message: 'Failed to clear history.' });
     }
 });
+
+app.post('/api/clear-logs', (req, res) => {
+    engine.logs = [];
+    res.json({ success: true, message: 'Telemetry logs cleared on server.' });
+});
 app.post('/api/run-travel-report', (req, res) => {
     const { imeis, date, hours, speed, hours_only } = req.body;
     if (!imeis || !date) {

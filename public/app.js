@@ -511,8 +511,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // Clear Telemetry log button
     const btnClearTelemetry = document.getElementById('btn-clear-telemetry');
     if (btnClearTelemetry && terminalOutput) {
-        btnClearTelemetry.addEventListener('click', () => {
-            terminalOutput.innerHTML = '<div class="log-line text-muted">Awaiting connection...</div>';
+        btnClearTelemetry.addEventListener('click', async () => {
+            try {
+                const res = await fetch('/api/clear-logs', { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    terminalOutput.innerHTML = '<div class="log-line text-muted">Awaiting connection...</div>';
+                }
+            } catch (e) {
+                console.error("Failed to clear telemetry logs:", e);
+            }
         });
     }
 
