@@ -52,7 +52,7 @@ class SpooferEngine {
     
     save_history(imei, mode, added_km, start_odo, final_odo, target_hours, shield_hours, history_date = null) {
         try {
-            const HISTORY_FILE = path.join(__dirname, '..', 'history.json');
+            const HISTORY_FILE = path.join(__dirname, 'data', 'history.json');
             let history = [];
             if (fs.existsSync(HISTORY_FILE)) {
                 history = JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8'));

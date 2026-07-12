@@ -8,36 +8,48 @@ const { runTravelReport } = require('./travel_report_spoofer');
 
 const app = express();
 const port = 5001;
-const SCHEDULED_FILE = path.join(__dirname, '..', 'scheduled_jobs.json');
-const HISTORY_FILE = path.join(__dirname, '..', 'history.json');
-const SLEEP_CONFIGS_FILE = path.join(__dirname, '..', 'sleep_configs.json');
-
-// Auto-restore backup migration: Copy files from hostinger_deployment to parent folder if missing or empty
-[
-    { parent: SCHEDULED_FILE, local: path.join(__dirname, 'scheduled_jobs.json') },
-    { parent: HISTORY_FILE, local: path.join(__dirname, 'history.json') },
-    { parent: SLEEP_CONFIGS_FILE, local: path.join(__dirname, 'sleep_configs.json') }
-].forEach(pair => {
+const DATA_DIR = path.join(__dirname, 'data');
+if (!fs.existsSync(DATA_DIR)) {
     try {
-        if (fs.existsSync(pair.local)) {
-            let shouldCopy = false;
-            if (!fs.existsSync(pair.parent)) {
-                shouldCopy = true;
-            } else {
-                const parentSize = fs.statSync(pair.parent).size;
-                const localSize = fs.statSync(pair.local).size;
-                // If parent file exists but is empty/dummy (e.g. less than 10 bytes like "[]" or ""), and local is larger
-                if (parentSize < 10 && localSize > parentSize) {
-                    shouldCopy = true;
+        fs.mkdirSync(DATA_DIR, { recursive: true });
+    } catch (e) {
+        console.error("Failed to create data directory:", e.message);
+    }
+}
+
+const SCHEDULED_FILE = path.join(DATA_DIR, 'scheduled_jobs.json');
+const HISTORY_FILE = path.join(DATA_DIR, 'history.json');
+const SLEEP_CONFIGS_FILE = path.join(DATA_DIR, 'sleep_configs.json');
+
+// Auto-restore backup migration: Copy files from hostinger_deployment or parent to data/ folder if missing or empty
+[
+    { target: SCHEDULED_FILE, candidates: [path.join(__dirname, '..', 'scheduled_jobs.json'), path.join(__dirname, 'scheduled_jobs.json')] },
+    { target: HISTORY_FILE, candidates: [path.join(__dirname, '..', 'history.json'), path.join(__dirname, 'history.json')] },
+    { target: SLEEP_CONFIGS_FILE, candidates: [path.join(__dirname, '..', 'sleep_configs.json'), path.join(__dirname, 'sleep_configs.json')] }
+].forEach(group => {
+    try {
+        let bestCandidate = null;
+        let maxSize = -1;
+        
+        group.candidates.forEach(cand => {
+            if (fs.existsSync(cand)) {
+                const size = fs.statSync(cand).size;
+                if (size > maxSize) {
+                    maxSize = size;
+                    bestCandidate = cand;
                 }
             }
-            if (shouldCopy) {
-                console.log(`Auto-restoring/moving ${path.basename(pair.local)} to parent directory...`);
-                fs.copyFileSync(pair.local, pair.parent);
-            }
+        });
+        
+        const targetExists = fs.existsSync(group.target);
+        const targetSize = targetExists ? fs.statSync(group.target).size : 0;
+        
+        if (bestCandidate && (!targetExists || targetSize < 10) && maxSize > targetSize) {
+            console.log(`Auto-restoring ${path.basename(bestCandidate)} to ${group.target} (${maxSize} bytes)...`);
+            fs.copyFileSync(bestCandidate, group.target);
         }
     } catch (err) {
-        console.error(`Failed to auto-restore ${path.basename(pair.local)}:`, err.message);
+        console.error(`Failed to migrate/restore ${path.basename(group.target)}:`, err.message);
     }
 });
 
