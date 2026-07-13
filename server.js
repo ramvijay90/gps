@@ -122,6 +122,109 @@ try {
     console.error("Failed to seed May history records:", err.message);
 }
 
+// Auto-recover recent history from dev.igps.io database if missing (runs at server startup)
+async function recoverRecentHistory() {
+    const targetImeis = [
+        { imei: '862942074961137', vehicle_no: 'TN 45 BJ 8650 RIG', is_hours: true },
+        { imei: '869925071606675', vehicle_no: 'TN 45 CB 9753', is_hours: false },
+        { imei: '869925071609026', vehicle_no: 'TN 45 CB 9706', is_hours: false }
+    ];
+    
+    const istTime = new Date(Date.now() + (330 * 60000));
+    const todayStr = istTime.toISOString().split('T')[0];
+    const yesterday = new Date(istTime.getTime() - 24 * 3600000);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    
+    const dates = [yesterdayStr, todayStr];
+    
+    let history = [];
+    try {
+        if (fs.existsSync(HISTORY_FILE)) {
+            history = JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8') || '[]');
+        }
+    } catch(e) {}
+    if (!Array.isArray(history)) history = [];
+    
+    let changed = false;
+    
+    for (const v of targetImeis) {
+        for (const date of dates) {
+            const exists = history.some(h => h.imei === v.imei && h.date === date);
+            if (exists) continue;
+            
+            try {
+                const bodyParams = new URLSearchParams();
+                bodyParams.append('imei', v.imei);
+                bodyParams.append('from', `${date} 00:00:00`);
+                bodyParams.append('to', `${date} 23:59:59`);
+                bodyParams.append('username', 'trichy');
+                bodyParams.append('action', 'history_web');
+                
+                const response = await fetch('http://dev.igps.io/http.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: bodyParams.toString(),
+                    signal: AbortSignal.timeout(8000)
+                });
+                
+                const data = await response.json();
+                if (Array.isArray(data) && data.length > 0) {
+                    const spoofed = data.filter(p => p.course === '91.26' || p.i_status === '1');
+                    if (spoofed.length > 10) {
+                        const first_t = new Date(spoofed[0].dt.replace(' ', 'T') + "Z").getTime();
+                        const last_t = new Date(spoofed[spoofed.length - 1].dt.replace(' ', 'T') + "Z").getTime();
+                        const duration_h = parseFloat(((last_t - first_t) / 3600000).toFixed(2));
+                        
+                        let added_km = 0;
+                        let start_odo = 0;
+                        let final_odo = 0;
+                        
+                        if (!v.is_hours) {
+                            const first_odo = spoofed[0].totel_km || "0-0";
+                            const last_odo = spoofed[spoofed.length - 1].totel_km || "0-0";
+                            const first_val = parseFloat(first_odo.split("-")[0]);
+                            const last_val = parseFloat(last_odo.split("-")[0]);
+                            added_km = parseFloat((last_val - first_val).toFixed(1));
+                            start_odo = first_val;
+                            final_odo = last_val;
+                            
+                            if (added_km <= 0) {
+                                added_km = parseFloat((duration_h * 40).toFixed(1));
+                                start_odo = first_val;
+                                final_odo = first_val + added_km;
+                            }
+                        }
+                        
+                        history.unshift({
+                            timestamp: `${date} 23:59:59`,
+                            date: date,
+                            imei: v.imei,
+                            vehicle_no: v.vehicle_no,
+                            mode: v.is_hours ? 'travel_hours' : 'travel_report',
+                            added_km: added_km,
+                            start_odo: start_odo,
+                            final_odo: final_odo,
+                            target_hours: duration_h,
+                            shield_hours: 0
+                        });
+                        
+                        changed = true;
+                        console.log(`[RECOVERY] Restored spoofing run for ${v.vehicle_no} on ${date} (${v.is_hours ? duration_h + ' hours' : added_km + ' KM'})`);
+                    }
+                }
+            } catch (err) {
+                console.error(`[RECOVERY ERROR] Failed to recover run for ${v.vehicle_no} on ${date}:`, err.message);
+            }
+        }
+    }
+    
+    if (changed) {
+        fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 4));
+    }
+}
+
+recoverRecentHistory();
+
 app.use(cors());
 app.use(express.json());
 // Serve the frontend UI exactly like Flask's "static" folder
