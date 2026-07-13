@@ -461,11 +461,13 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
                          const p_count = r.pack_count ? parseInt(r.pack_count) : curr_pack_count;
                          const p_bat = r.battery ? parseFloat(r.battery).toFixed(1) : v_battery;
                          const p_overspeed = r.overspeed || v_overspeed;
-                         const p_jcb = r.jcb_ac || "0-0-0-0";
-                         const p_speed = parseFloat(r.speed || 0);
-                         const p_ign = parseInt(r.ignition !== undefined ? r.ignition : 0);
-                         const p_status = p_ign === 1 ? "0-1-0-1-1" : "1-0-0-0-0";
-                         const p_jcb_bit = p_jcb === "1-1-1-1" ? 1 : 0;
+                         
+                         // Force parked state: Ignition OFF (0), Speed 0, JCB OFF
+                         const p_jcb = "0-0-0-0";
+                         const p_speed = 0;
+                         const p_ign = 0;
+                         const p_status = "1-0-0-0-0";
+                         const p_jcb_bit = 0;
                          
                          const payload = `##,${imei},0,${time_str},${coord_str},${p_speed},${p_bat},0,${p_ign},91.26,${odo_str},${p_overspeed},0-0,0-0,+0.0,0,${p_jcb},2000-00-00 00:00:00,2000-00-00 00:00:00,12,3950,0,${p_status},0,0,0-0,0,0,${p_count},${p_jcb_bit},0-26,3950,${p_jcb_bit},0,0,0,00000-00,$`;
                          
