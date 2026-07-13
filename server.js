@@ -341,6 +341,19 @@ app.post('/api/run-travel-report', (req, res) => {
             console.log(`[TR] [${imei}] Finished successfully.`);
             const added_km = is_hours_only ? 0 : (target_h * target_spd);
             engine.save_history(imei, is_hours_only ? "travel_hours" : "travel_report", added_km, 0, 0, target_h, 0, date);
+            
+            // Auto-engage shield if date is today (IST)
+            const istToday = new Date(Date.now() + (330 * 60000)).toISOString().split('T')[0];
+            if (date === istToday) {
+                // Fetch the final state to lock the correct final odometer and coordinates
+                const state = await engine.fetch_live_data_instant(imei, date);
+                const final_odo = state.odo || 0.0;
+                const final_lat = state.lat || 10.822819;
+                const final_lng = state.lng || 78.681126;
+                
+                // Engage Shield for 12 hours
+                engine.engage_shield(imei, final_odo, final_lat, final_lng, is_hours_only, 12);
+            }
         } catch (err) {
             console.error(`[TR ERROR] [${imei}] ${err.message}`);
             engine.log(`[TR ERROR] [${imei}] ${err.message}`);

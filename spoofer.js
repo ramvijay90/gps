@@ -237,6 +237,51 @@ class SpooferEngine {
         return istTime.toISOString().replace('T', ' ').substring(0, 19);
     }
     
+    engage_shield(imei, final_odo, final_lat, final_lng, hours_only, expiry_hours = 12) {
+        if (this.active_shields_list[imei]) {
+            try { this.active_shields_list[imei].cancel(); } catch(e) {}
+        }
+        
+        const client = mqtt.connect(this.MQTT_BROKER, {
+            username: "realiot",
+            password: "realmqtt@123",
+            clientId: `mqttjs_sh_${imei}_${Math.random().toString(16).substr(2, 4)}`,
+            connectTimeout: 5000
+        });
+        
+        const expiryDate = new Date(Date.now() + expiry_hours * 3600000);
+        const topic = `BB/${imei}`;
+        
+        const odo_str = `${final_odo.toFixed(6)}-${final_odo.toFixed(6)}`;
+        const coord_str = `+${parseFloat(final_lat).toFixed(6)},+${parseFloat(final_lng).toFixed(6)}`;
+        
+        let shield_interval_id = setInterval(() => {
+            if (this.kill_all_drives) {
+                clearInterval(shield_interval_id);
+                client.end();
+                delete this.active_shields_list[imei];
+                return;
+            }
+            
+            const time_str = this.formatDateStr(new Date());
+            // Parked heartbeat: Ignition=0, Speed=0, JCB=0-0-0-0
+            const payload = `##,${imei},0,${time_str},${coord_str},0,12.0,0,0,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,0-0-0-0,2000-00-00 00:00:00,2000-00-00 00:00:00,12,3950,0,1-0-0-0-0,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
+            client.publish(topic, payload);
+        }, 5000); // Heartbeat every 5 seconds
+        
+        this.active_shields_list[imei] = {
+            expiry_time: expiryDate.toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata' }),
+            cancel: () => {
+                clearInterval(shield_interval_id);
+                client.end();
+            },
+            interval: shield_interval_id,
+            client: client
+        };
+        
+        this.log(`[SHIELD ENGAGED] [${imei}] Protecting odometer at ${final_odo.toFixed(2)} KM until ${this.active_shields_list[imei].expiry_time} IST`);
+    }
+    
     async _process_vehicle(imei, config) {
         let v_voltage = 25.0;
         const matched = vehicle_db.find(v => v.imei === imei);
