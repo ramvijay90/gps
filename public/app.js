@@ -6,6 +6,42 @@ document.addEventListener('DOMContentLoaded', () => {
     const spinner = document.getElementById('loading-spinner');
     const btnFetchOdo = document.getElementById('btn-fetch-odo');
     
+    // Sidebar toggle and responsiveness logic
+    const sidebar = document.querySelector('.sidebar');
+    const toggleBtn = document.getElementById('sidebar-toggle');
+    
+    // Create overlay backdrop if it doesn't exist
+    let overlay = document.querySelector('.sidebar-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.className = 'sidebar-overlay';
+        document.body.appendChild(overlay);
+    }
+
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            sidebar.classList.toggle('active');
+            overlay.classList.toggle('active');
+        });
+    }
+
+    overlay.addEventListener('click', () => {
+        sidebar.classList.remove('active');
+        overlay.classList.remove('active');
+    });
+
+    // Close sidebar when menu item is clicked on mobile
+    const mobileMenuItems = document.querySelectorAll('.sidebar-menu li, .menu-item');
+    mobileMenuItems.forEach(item => {
+        item.addEventListener('click', () => {
+            if (window.innerWidth <= 768) {
+                sidebar.classList.remove('active');
+                overlay.classList.remove('active');
+            }
+        });
+    });
+    
     // Mode Switching Logic
     const radioCards = document.querySelectorAll('.radio-card');
     const driveSettings = document.getElementById('drive-settings');

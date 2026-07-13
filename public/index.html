@@ -139,6 +139,81 @@
         .report-table tr:hover {
             background-color: rgba(255, 255, 255, 0.02);
         }
+
+        /* Mobile Header - hidden by default on desktop */
+        .mobile-header {
+            display: none;
+            align-items: center;
+            gap: 1rem;
+            background-color: #0f172a;
+            border-bottom: 1px solid #334155;
+            padding: 1rem;
+            margin: -2rem -2rem 2rem -2rem; /* Pull header to edge of content-area */
+        }
+        
+        .mobile-header .toggle-btn {
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0;
+            display: flex;
+            align-items: center;
+        }
+
+        /* Overlay backdrop */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 99;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+        
+        .sidebar-overlay.active {
+            display: block;
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* Responsive Media Query */
+        @media (max-width: 768px) {
+            .mobile-header {
+                display: flex;
+            }
+            .sidebar {
+                position: fixed;
+                left: -260px;
+                top: 0;
+                bottom: 0;
+                z-index: 100;
+                transition: left 0.3s ease;
+                box-shadow: 5px 0 15px rgba(0,0,0,0.5);
+            }
+            .sidebar.active {
+                left: 0;
+            }
+            .grid-dashboard {
+                grid-template-columns: 1fr;
+            }
+            .report-controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .content-area {
+                padding: 1.5rem;
+            }
+            .report-controls button {
+                width: 100%;
+            }
+        }
     </style>
 </head>
 <body>
@@ -163,6 +238,13 @@
 
         <!-- MAIN CONTENT AREA -->
         <div class="content-area">
+            <!-- Mobile Header inside Content Area -->
+            <div class="mobile-header">
+                <button id="sidebar-toggle" class="toggle-btn">☰</button>
+                <div style="font-weight:bold; color:#fff; display:flex; align-items:center; gap:0.5rem;">
+                    <span>🛰️</span> igps Control
+                </div>
+            </div>
             
             <!-- VIEW 1: DASHBOARD (MAIN SPOOFING INTERFACE) -->
             <div id="view-dashboard" class="tab-panel">
