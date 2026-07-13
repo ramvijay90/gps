@@ -334,6 +334,7 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
                 target_timestamps.push({
                     time: new Date(inject_start.getTime() + (i * 30000)),
                     is_original: false,
+                    is_before_start: false,
                     pack_count: curr_pack_count + i
                 });
             }
@@ -348,7 +349,26 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
                         target_timestamps.push({
                             time: t,
                             is_original: true,
+                            is_before_start: false,
                             pack_count: r.pack_count ? parseInt(r.pack_count) : (curr_pack_count + broadcasts)
+                        });
+                    }
+                }
+            });
+            
+            // 2.5 Add any parked packets (Ignition OFF) up to 20 minutes BEFORE the start of the window
+            history_data.forEach(r => {
+                const t = new Date(r.dt.replace(' ', 'T') + "Z");
+                const t_ms = t.getTime();
+                const is_parked = (r.i_status === '0' || parseInt(r.ignition) === 0);
+                if (is_parked && t_ms >= inject_start.getTime() - 20 * 60 * 1000 && t_ms < inject_start.getTime()) {
+                    const exists = target_timestamps.some(item => Math.abs(item.time.getTime() - t_ms) < 1000);
+                    if (!exists) {
+                        target_timestamps.push({
+                            time: t,
+                            is_original: true,
+                            is_before_start: true,
+                            pack_count: r.pack_count ? parseInt(r.pack_count) : curr_pack_count
                         });
                     }
                 }
@@ -364,12 +384,17 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
                 for (let i = 0; i < target_timestamps.length; i++) {
                     const item = target_timestamps[i];
                     const curr_time = item.time;
-                    const elapsed_seconds = (curr_time.getTime() - inject_start.getTime()) / 1000.0;
                     
-                    // Calculate linear odometer progression based on elapsed time
-                    const elapsed_hours = elapsed_seconds / 3600.0;
-                    curr_odo = start_odo + (elapsed_hours * active_speed);
-                    curr_today_odo = today_odo + (elapsed_hours * active_speed);
+                    if (item.is_before_start) {
+                        // Pre-start overwrite: Lock to starting odometer
+                        curr_odo = start_odo;
+                        curr_today_odo = today_odo;
+                    } else {
+                        const elapsed_seconds = (curr_time.getTime() - inject_start.getTime()) / 1000.0;
+                        const elapsed_hours = elapsed_seconds / 3600.0;
+                        curr_odo = start_odo + (elapsed_hours * active_speed);
+                        curr_today_odo = today_odo + (elapsed_hours * active_speed);
+                    }
                     
                     const time_str = curr_time.toISOString().replace('T', ' ').substring(0, 19);
                     
