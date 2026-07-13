@@ -363,7 +363,7 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
                 const final_coord = `+${base_lat.toFixed(6)},+${base_lng.toFixed(6)}`;
                 
                 // Final packet ends the trip: Ignition=0, JCB=0-0-0-0
-                const end_payload = `##,${imei},0,${final_time_str},${final_coord},0,${v_battery},0,0,91.26,${final_odo_str},${v_overspeed},0-0,0-0,+0.0,0,0-0-0-0,2000-00-00 00:00:00,2000-00-00 00:00:00,12,3950,0,1-0-0-0-0,0,0,0-0,0,0,${curr_pack_count},1,0-26,3950,1,0,0,0,00000-00,$`;
+                const end_payload = `##,${imei},0,${final_time_str},${final_coord},0,${v_battery},0,0,91.26,${final_odo_str},${v_overspeed},0-0,0-0,+0.0,0,0-0-0-0,2000-00-00 00:00:00,2000-00-00 00:00:00,12,3950,0,1-0-0-0-0,0,0,0-0,0,0,${curr_pack_count},0,0-26,3950,0,0,0,0,00000-00,$`;
                  client.publish(topic, end_payload);
                  
                  // Overwrite subsequent original packets to prevent odometer drops

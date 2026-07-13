@@ -265,7 +265,7 @@ class SpooferEngine {
             
             const time_str = this.formatDateStr(new Date());
             // Parked heartbeat: Ignition=0, Speed=0, JCB=0-0-0-0
-            const payload = `##,${imei},0,${time_str},${coord_str},0,12.0,0,0,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,0-0-0-0,2000-00-00 00:00:00,2000-00-00 00:00:00,12,3950,0,1-0-0-0-0,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
+            const payload = `##,${imei},0,${time_str},${coord_str},0,12.0,0,0,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,0-0-0-0,2000-00-00 00:00:00,2000-00-00 00:00:00,12,3950,0,1-0-0-0-0,0,0,0-0,0,0,2782,0,0-26,3950,0,0,0,0,00000-00,$`;
             client.publish(topic, payload);
         }, 5000); // Heartbeat every 5 seconds
         
@@ -430,7 +430,7 @@ class SpooferEngine {
                     const final_coord_str = `+${parseFloat(final_lat).toFixed(6)},+${parseFloat(final_lng).toFixed(6)}`;
                     
                     // speed=0, ignition=0 (1-0-0-0-0), jcb_ac=0-0-0-0
-                    const end_payload = `##,${imei},0,${final_time_str},${final_coord_str},0,${v_voltage.toFixed(1)},0,0,91.26,${final_odo_str},0-0,0-0,0-0,+0.0,0,0-0-0-0,2000-00-00 00:00:00,2000-00-00 00:00:00,${v_voltage.toFixed(0)},3950,0,1-0-0-0-0,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
+                    const end_payload = `##,${imei},0,${final_time_str},${final_coord_str},0,${v_voltage.toFixed(1)},0,0,91.26,${final_odo_str},0-0,0-0,0-0,+0.0,0,0-0-0-0,2000-00-00 00:00:00,2000-00-00 00:00:00,${v_voltage.toFixed(0)},3950,0,1-0-0-0-0,0,0,0-0,0,0,2782,0,0-26,3950,0,0,0,0,00000-00,$`;
                     client.publish(topic, end_payload);
                     
                     this.log(`[${imei}] Sent final Engine Hours OFF packet. Finished Engine Hours Drive.`);
@@ -537,7 +537,7 @@ class SpooferEngine {
                         const odo_str = `${total_odo.toFixed(6)}-${today_odo.toFixed(6)}`;
                         const coord_str = `+${parseFloat(curr_lat).toFixed(6)},+${parseFloat(curr_lng).toFixed(6)}`;
                         
-                        last_payload = `##,${imei},0,${time_str},${coord_str},0,${v_voltage.toFixed(1)},0,0,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,0-0-0-0,2000-00-00 00:00:00,2000-00-00 00:00:00,${v_voltage.toFixed(0)},3950,0,1-0-0-0-0,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
+                        last_payload = `##,${imei},0,${time_str},${coord_str},0,${v_voltage.toFixed(1)},0,0,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,0-0-0-0,2000-00-00 00:00:00,2000-00-00 00:00:00,${v_voltage.toFixed(0)},3950,0,1-0-0-0-0,0,0,0-0,0,0,2782,0,0-26,3950,0,0,0,0,00000-00,$`;
                         client.publish(topic, last_payload);
                         await new Promise(r => setTimeout(r, 5));
                     }
