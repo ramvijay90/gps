@@ -329,9 +329,27 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
             // Build the chronological list of target timestamps to publish
             const target_timestamps = [];
             
+            // Helper to add/replace timestamps cleanly (prevents duplicates at same second)
+            function addOrReplaceTimestamp(entry) {
+                const target_ms = entry.time.getTime();
+                const idx = target_timestamps.findIndex(item => Math.abs(item.time.getTime() - target_ms) < 1000);
+                if (idx !== -1) {
+                    // Replace/Merge: If new entry is a regular interval (Ignition ON) or original, overwrite it
+                    // We prioritize preserving is_before_start = true if it matches that phase
+                    target_timestamps[idx] = {
+                        time: entry.time,
+                        is_original: entry.is_original || target_timestamps[idx].is_original,
+                        is_before_start: entry.is_before_start || target_timestamps[idx].is_before_start,
+                        pack_count: entry.pack_count
+                    };
+                } else {
+                    target_timestamps.push(entry);
+                }
+            }
+            
             // 1. Add regular 30-second intervals
             for (let i = 0; i < broadcasts; i++) {
-                target_timestamps.push({
+                addOrReplaceTimestamp({
                     time: new Date(inject_start.getTime() + (i * 30000)),
                     is_original: false,
                     is_before_start: false,
@@ -344,15 +362,12 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
                 const t = new Date(r.dt.replace(' ', 'T') + "Z");
                 const t_ms = t.getTime();
                 if (t_ms >= inject_start.getTime() && t_ms < final_time.getTime()) {
-                    const exists = target_timestamps.some(item => Math.abs(item.time.getTime() - t_ms) < 1000);
-                    if (!exists) {
-                        target_timestamps.push({
-                            time: t,
-                            is_original: true,
-                            is_before_start: false,
-                            pack_count: r.pack_count ? parseInt(r.pack_count) : (curr_pack_count + broadcasts)
-                        });
-                    }
+                    addOrReplaceTimestamp({
+                        time: t,
+                        is_original: true,
+                        is_before_start: false,
+                        pack_count: r.pack_count ? parseInt(r.pack_count) : (curr_pack_count + broadcasts)
+                    });
                 }
             });
             
@@ -362,15 +377,12 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
                 const t_ms = t.getTime();
                 const is_parked = (r.i_status === '0' || parseInt(r.ignition) === 0);
                 if (is_parked && t_ms >= inject_start.getTime() - 20 * 60 * 1000 && t_ms < inject_start.getTime()) {
-                    const exists = target_timestamps.some(item => Math.abs(item.time.getTime() - t_ms) < 1000);
-                    if (!exists) {
-                        target_timestamps.push({
-                            time: t,
-                            is_original: true,
-                            is_before_start: true,
-                            pack_count: r.pack_count ? parseInt(r.pack_count) : curr_pack_count
-                        });
-                    }
+                    addOrReplaceTimestamp({
+                        time: t,
+                        is_original: true,
+                        is_before_start: true,
+                        pack_count: r.pack_count ? parseInt(r.pack_count) : curr_pack_count
+                    });
                 }
             });
             
