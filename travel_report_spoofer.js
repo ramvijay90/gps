@@ -427,7 +427,17 @@ if (require.main === module) {
         process.exit(1);
     }
     runTravelReport(imei, date_str, target_hours, speed, console.log, hours_only_cli)
-        .then(() => process.exit(0))
+        .then(() => {
+            try {
+                const engine = require('./spoofer');
+                const added_km = hours_only_cli ? 0 : (target_hours * speed);
+                engine.save_history(imei, hours_only_cli ? "travel_hours" : "travel_report", added_km, 0, 0, target_hours, 0, date_str);
+                console.log("[+] Auto-saved trip to history.json");
+            } catch(e) {
+                console.error("[-] Failed to auto-save to history:", e.message);
+            }
+            process.exit(0);
+        })
         .catch(err => {
             console.error(err);
             process.exit(1);
