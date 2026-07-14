@@ -64,8 +64,8 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
         const last_packet = history_data[history_data.length - 1];
         last_packet_t = new Date(last_packet.dt.replace(' ', 'T') + "Z").getTime();
         
-        // Start the spoof 1 minute after the last recorded packet
-        gap_start = new Date(Math.max(last_packet_t + 60000, start_boundary));
+        // Start the spoof 15 minutes after the last recorded packet to guarantee it's a separate trip
+        gap_start = new Date(Math.max(last_packet_t + (15 * 60000), start_boundary));
         
         // Ensure it fits within the 10 PM IST boundary if needed
         if (gap_start.getTime() + (required_gap_seconds * 1000) > end_boundary) {
