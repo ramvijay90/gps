@@ -356,35 +356,7 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
                     pack_count: curr_pack_count + i
                 });
             }
-            
-            // 2. Add any pre-existing real packets inside the window to overwrite them at their exact timestamps
-            history_data.forEach(r => {
-                const t = new Date(r.dt.replace(' ', 'T') + "Z");
-                const t_ms = t.getTime();
-                if (t_ms >= inject_start.getTime() && t_ms < final_time.getTime()) {
-                    addOrReplaceTimestamp({
-                        time: t,
-                        is_original: true,
-                        is_before_start: false,
-                        pack_count: r.pack_count ? parseInt(r.pack_count) : (curr_pack_count + broadcasts)
-                    });
-                }
-            });
-            
-            // 2.5 Add any parked packets (Ignition OFF) up to 20 minutes BEFORE the start of the window
-            history_data.forEach(r => {
-                const t = new Date(r.dt.replace(' ', 'T') + "Z");
-                const t_ms = t.getTime();
-                const is_parked = (r.i_status === '0' || parseInt(r.ignition) === 0);
-                if (is_parked && t_ms >= inject_start.getTime() - 20 * 60 * 1000 && t_ms < inject_start.getTime()) {
-                    addOrReplaceTimestamp({
-                        time: t,
-                        is_original: true,
-                        is_before_start: true,
-                        pack_count: r.pack_count ? parseInt(r.pack_count) : curr_pack_count
-                    });
-                }
-            });
+            // Exact time overwriting (Block 2 and 2.5) has been removed to prevent duplicate rows.
             
             // 3. Sort chronologically
             target_timestamps.sort((a, b) => a.time.getTime() - b.time.getTime());
