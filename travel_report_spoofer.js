@@ -104,7 +104,6 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
                 start_odo = parseFloat(totel_km);
                 today_odo = parseFloat(totel_km);
             }
-        }
     } else {
         logCallback("[!] No history found for this date. Fetching last known state from previous 5 days...");
         const targetDate = new Date(date_str);
