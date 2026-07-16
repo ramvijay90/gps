@@ -64,15 +64,23 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
         const last_packet = history_data[history_data.length - 1];
         last_packet_t = new Date(last_packet.dt.replace(' ', 'T') + "Z").getTime();
         
-        // Start the spoof 15 minutes after the last recorded packet to guarantee it's a separate trip
-        gap_start = new Date(Math.max(last_packet_t + (15 * 60000), start_boundary));
+        // Check if it's the current "Live" day by seeing if midnight tonight is still in the future
+        const day_end_ms = new Date(date_str + "T23:59:59+05:30").getTime();
+        const is_live_today = (new Date().getTime() < day_end_ms);
         
-        // Ensure it fits within the 10 PM IST boundary if needed
-        if (gap_start.getTime() + (required_gap_seconds * 1000) > end_boundary) {
-            logCallback(`[!] Warning: Injection pushes past 10 PM IST boundary. Adjusting...`);
-            gap_start = new Date(end_boundary - (required_gap_seconds * 1000) - 120000);
-            if (gap_start.getTime() < start_boundary) {
-                gap_start = new Date(start_boundary);
+        if (is_live_today) {
+            logCallback(`[!] Live day detected! Forcing injection near midnight to prevent real tracker heartbeats from erasing the spoof...`);
+            const absolute_end = new Date(date_str + "T23:50:00+05:30").getTime();
+            gap_start = new Date(absolute_end - (required_gap_seconds * 1000));
+        } else {
+            // Past day: Start the spoof 15 minutes after the last recorded packet to guarantee it's a separate trip
+            gap_start = new Date(Math.max(last_packet_t + (15 * 60000), start_boundary));
+            
+            // Ensure it fits within the 11:45 PM IST boundary if needed
+            const absolute_end = new Date(date_str + "T23:45:00+05:30").getTime();
+            if (gap_start.getTime() + (required_gap_seconds * 1000) > absolute_end) {
+                logCallback(`[!] Warning: Injection pushes past end boundary. Adjusting...`);
+                gap_start = new Date(absolute_end - (required_gap_seconds * 1000));
             }
         }
         
@@ -259,11 +267,6 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
                     
                     let lat = base_lat;
                     let lng = base_lng;
-                    if (!hours_only && i % 2 !== 0) {
-                        const next_pos = calculateNextPosition(base_lat, base_lng, speed_ms * 30.0, 0); // Move North by tick distance
-                        lat = next_pos.lat;
-                        lng = next_pos.lng;
-                    }
                     
                     const coord_str = `+${lat.toFixed(6)},+${lng.toFixed(6)}`;
                     const odo_str = `${curr_odo.toFixed(3)}-${curr_today_odo.toFixed(3)}`;
