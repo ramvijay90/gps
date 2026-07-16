@@ -140,11 +140,13 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
                                 const pack_count = p.pack_count || 3000;
                                 const v_battery = p.battery || "12.0";
                                 const v_overspeed = p.overspeed || "0-0";
+                                const v_itime = p.i_time || "0";
+                                const v_course = p.course || "0.00";
                                 const status_bit_val = "0-1-0-1-1"; // IGN ON
                                 const jcb_ac_val = "1-1-1-1";
                                 const jcb_bit_val = 1;
                                 
-                                const payload = `##,${imei},0,${time_str},${coord_str},0,${v_battery},0,1,91.26,${odo_str},${v_overspeed},0-0,0-0,+0.0,0,${jcb_ac_val},2000-00-00 00:00:00,2000-00-00 00:00:00,12,3950,0,${status_bit_val},0,0,0-0,0,0,${pack_count},${jcb_bit_val},0-26,3950,${jcb_bit_val},0,0,0,00000-00,$`;
+                                const payload = `##,${imei},0,${time_str},${coord_str},0,${v_battery},${v_itime},1,${v_course},${odo_str},${v_overspeed},0-0,0-0,+0.0,0,${jcb_ac_val},2000-00-00 00:00:00,2000-00-00 00:00:00,12,3950,0,${status_bit_val},0,0,0-0,0,0,${pack_count},${jcb_bit_val},0-26,3950,${jcb_bit_val},0,0,0,00000-00,$`;
                                 packets_to_publish.push(payload);
                                 last_p = p;
                             } else {
@@ -163,7 +165,9 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
                             let final_odo_str = last_p.totel_km;
                             if (!final_odo_str.includes('-')) final_odo_str = `${final_odo_str}-${final_odo_str}`;
                             
-                            const final_payload = `##,${imei},0,${final_time_str},${final_coord_str},0,${last_p.battery || "12.0"},0,0,91.26,${final_odo_str},0-0,0-0,0-0,+0.0,0,0-0-0-0,2000-00-00 00:00:00,2000-00-00 00:00:00,12,3950,0,1-0-0-0-0,0,0,0-0,0,0,3000,0,0-26,3950,0,0,0,0,00000-00,$`;
+                            const v_itime = last_p.i_time || "0";
+                            const v_course = last_p.course || "0.00";
+                            const final_payload = `##,${imei},0,${final_time_str},${final_coord_str},0,${last_p.battery || "12.0"},${v_itime},0,${v_course},${final_odo_str},0-0,0-0,0-0,+0.0,0,0-0-0-0,2000-00-00 00:00:00,2000-00-00 00:00:00,12,3950,0,1-0-0-0-0,0,0,0-0,0,0,3000,0,0-26,3950,0,0,0,0,00000-00,$`;
                             packets_to_publish.push(final_payload);
                             
                             // If we didn't fulfill the hours completely within this gap (because the gap ended), subtract what we did add
