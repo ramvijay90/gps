@@ -195,100 +195,46 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
             logCallback("[+] Connected to MQTT server.");
             const topic = `BB/${imei}`;
             
-            const broadcasts = Math.floor(required_gap_seconds / 30);
-            
-            // Ignition must be 1 (ON) for both modes so it registers as a playback segment in the list
-            // JCB accessory runtime (SPV Hours) is only enabled if hours_only is true
-            const active_speed = hours_only ? 0 : speed;
-            const speed_ms = active_speed * (1000.0 / 3600.0);
-            
-            const ignition_val = 1;
-            const jcb_ac_val = hours_only ? "1-1-1-1" : "0-0-0-0";
-            const jcb_bit_val = hours_only ? 1 : 0;
-            const status_bit_val = "0-1-0-1-1";
-            
-            const final_time = new Date(inject_start.getTime() + (broadcasts * 30000) + 1000);
-            
-            // Build the chronological list of target timestamps to publish
-            const target_timestamps = [];
-            
-            // Helper to add/replace timestamps cleanly (prevents duplicates at same second)
-            function addOrReplaceTimestamp(entry) {
-                const target_ms = entry.time.getTime();
-                const idx = target_timestamps.findIndex(item => Math.abs(item.time.getTime() - target_ms) < 1000);
-                if (idx !== -1) {
-                    // Replace/Merge: If new entry is a regular interval (Ignition ON) or original, overwrite it
-                    // We prioritize preserving is_before_start = true if it matches that phase
-                    target_timestamps[idx] = {
-                        time: entry.time,
-                        is_original: entry.is_original || target_timestamps[idx].is_original,
-                        is_before_start: entry.is_before_start || target_timestamps[idx].is_before_start,
-                        pack_count: entry.pack_count
-                    };
-                } else {
-                    target_timestamps.push(entry);
-                }
-            }
-            
-            // 1. Add regular 30-second intervals
-            for (let i = 0; i < broadcasts; i++) {
-                addOrReplaceTimestamp({
-                    time: new Date(inject_start.getTime() + (i * 30000)),
-                    is_original: false,
-                    is_before_start: false,
-                    pack_count: curr_pack_count + i
-                });
-            }
-            // Exact time overwriting (Block 2 and 2.5) has been removed to prevent duplicate rows.
-            
-            // 3. Sort chronologically
-            target_timestamps.sort((a, b) => a.time.getTime() - b.time.getTime());
+            const broadcasts = Math.floor(required_gap_seconds / 5);
+            const speed_ms = speed * (1000.0 / 3600.0);
+            const dist_per_tick = (speed_ms * 5.0) / 1000.0;
             
             let curr_odo = start_odo;
             let curr_today_odo = today_odo;
             
             try {
-                for (let i = 0; i < target_timestamps.length; i++) {
-                    const item = target_timestamps[i];
-                    const curr_time = item.time;
-                    
-                    if (item.is_before_start) {
-                        // Pre-start overwrite: Lock to starting odometer
-                        curr_odo = start_odo;
-                        curr_today_odo = today_odo;
-                    } else {
-                        const elapsed_seconds = (curr_time.getTime() - inject_start.getTime()) / 1000.0;
-                        const elapsed_hours = elapsed_seconds / 3600.0;
-                        curr_odo = start_odo + (elapsed_hours * active_speed);
-                        curr_today_odo = today_odo + (elapsed_hours * active_speed);
-                    }
+                for (let i = 0; i < broadcasts; i++) {
+                    const curr_time = new Date(inject_start.getTime() + (i * 5000));
+                    curr_odo += dist_per_tick;
+                    curr_today_odo += dist_per_tick;
                     
                     const time_str = curr_time.toISOString().replace('T', ' ').substring(0, 19);
                     
                     let lat = base_lat;
                     let lng = base_lng;
+                    if (i % 2 !== 0) {
+                        const next_pos = calculateNextPosition(base_lat, base_lng, speed_ms * 5.0, 0); // Move North by tick distance
+                        lat = next_pos.lat;
+                        lng = next_pos.lng;
+                    }
                     
                     const coord_str = `+${lat.toFixed(6)},+${lng.toFixed(6)}`;
                     const odo_str = `${curr_odo.toFixed(3)}-${curr_today_odo.toFixed(3)}`;
-                    const p_count = item.pack_count;
                     
-                    // Injection parameters: Force speed to 0 in the payload so the Route Map doesn't think it's moving, but keep odometer increasing
-                    const payload = `##,${imei},0,${time_str},${coord_str},0,${v_battery},0,${ignition_val},91.26,${odo_str},${v_overspeed},0-0,0-0,+0.0,0,${jcb_ac_val},2000-00-00 00:00:00,2000-00-00 00:00:00,12,3950,0,${status_bit_val},0,0,0-0,0,0,${p_count},${jcb_bit_val},0-26,3950,${jcb_bit_val},0,0,0,00000-00,$`;
+                    const payload = `##,${imei},0,${time_str},${coord_str},${speed},${v_battery},0,1,91.26,${odo_str},${v_overspeed},0-0,0-0,+0.0,0,${v_jcb},2000-00-00 00:00:00,2000-00-00 00:00:00,12,3950,0,0-1-0-1-1,0,0,0-0,0,0,${curr_pack_count},1,0-26,3950,1,0,0,0,00000-00,$`;
                     
                     client.publish(topic, payload);
+                    curr_pack_count++;
+                    
                     await new Promise(r => setTimeout(r, 100)); // 100ms safe interval
                 }
                 
+                const final_time = new Date(inject_start.getTime() + (broadcasts * 5000) + 1000);
                 const final_time_str = final_time.toISOString().replace('T', ' ').substring(0, 19);
-                const final_elapsed_seconds = (final_time.getTime() - inject_start.getTime()) / 1000.0;
-                curr_odo = start_odo + (final_elapsed_seconds / 3600.0) * active_speed;
-                curr_today_odo = today_odo + (final_elapsed_seconds / 3600.0) * active_speed;
                 const final_odo_str = `${curr_odo.toFixed(3)}-${curr_today_odo.toFixed(3)}`;
                 const final_coord = `+${base_lat.toFixed(6)},+${base_lng.toFixed(6)}`;
-                const end_pack_count = curr_pack_count + target_timestamps.length;
                 
-                // Final packet ends the trip: Ignition=0, JCB=0-0-0-0, JCB bits=0
-                const end_payload = `##,${imei},0,${final_time_str},${final_coord},0,${v_battery},0,0,91.26,${final_odo_str},${v_overspeed},0-0,0-0,+0.0,0,0-0-0-0,2000-00-00 00:00:00,2000-00-00 00:00:00,12,3950,0,1-0-0-0-0,0,0,0-0,0,0,${end_pack_count},0,0-26,3950,0,0,0,0,00000-00,$`;
+                const end_payload = `##,${imei},0,${final_time_str},${final_coord},0,${v_battery},0,0,91.26,${final_odo_str},${v_overspeed},0-0,0-0,+0.0,0,${v_jcb},2000-00-00 00:00:00,2000-00-00 00:00:00,12,3950,0,1-0-0-0-0,0,0,0-0,0,0,${curr_pack_count},1,0-26,3950,1,0,0,0,00000-00,$`;
                 client.publish(topic, end_payload);
                 
                 // Overwrite subsequent original packets to prevent odometer drops
