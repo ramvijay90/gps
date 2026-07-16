@@ -206,6 +206,29 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
                         packets_to_publish.push(payload);
                     }
                     
+                    // Inject ONE final Ignition 0 packet to lock in the high Odometer for the Travel Report
+                    const last_p = history_data[best_trip.start_idx + trip_len - 1];
+                    let final_packet_time = new Date(last_p.dt.replace(' ', 'T') + 'Z');
+                    final_packet_time.setUTCSeconds(final_packet_time.getUTCSeconds() + 2);
+                    const final_time_str = final_packet_time.toISOString().replace('T', ' ').substring(0, 19);
+                    
+                    let final_base_odo = 0;
+                    let final_base_today = 0;
+                    if (last_p.totel_km) {
+                        if (last_p.totel_km.includes('-')) {
+                            final_base_odo = parseFloat(last_p.totel_km.split('-')[0]);
+                            final_base_today = parseFloat(last_p.totel_km.split('-')[1]);
+                        } else {
+                            final_base_odo = parseFloat(last_p.totel_km);
+                            final_base_today = parseFloat(last_p.totel_km);
+                        }
+                    }
+                    const final_odo_str = `${(final_base_odo + target_added_val).toFixed(3)}-${(final_base_today + target_added_val).toFixed(3)}`;
+                    const final_coord_str = `+${parseFloat(last_p.lat).toFixed(6)},+${parseFloat(last_p.lng).toFixed(6)}`;
+                    
+                    const final_payload = `##,${imei},0,${final_time_str},${final_coord_str},0,${last_p.battery || "12.0"},0,0,91.26,${final_odo_str},0-0,0-0,0-0,+0.0,0,0-0-0-0,2000-00-00 00:00:00,2000-00-00 00:00:00,12,3950,0,1-0-0-0-0,0,0,0-0,0,0,3000,0,0-26,3950,0,0,0,0,00000-00,$`;
+                    packets_to_publish.push(final_payload);
+                    
                     // Removed the logic that modifies all packets after the trip.
                     // Injecting duplicates for the rest of the day causes later trips to also gain the offset!
                 }
