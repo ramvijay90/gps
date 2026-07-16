@@ -102,7 +102,10 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
                         if (elapsed_hours <= target_hours) {
                             // Modify this packet to be ON
                             let p = item.packet;
-                            const time_str = p.dt; // Keep original time exactly
+                            // Add 1 second to avoid duplicate timestamp filtering by the App
+                            let packet_time = new Date(p.dt.replace(' ', 'T') + 'Z');
+                            packet_time.setUTCSeconds(packet_time.getUTCSeconds() + 1);
+                            const time_str = packet_time.toISOString().replace('T', ' ').substring(0, 19);
                             const coord_str = `+${parseFloat(p.lat).toFixed(6)},+${parseFloat(p.lng).toFixed(6)}`;
                             
                             // Reconstruct odo correctly
@@ -184,7 +187,10 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
                         const new_today = base_today + offset_km;
                         const odo_str = `${new_odo.toFixed(3)}-${new_today.toFixed(3)}`;
                         
-                        const time_str = p.dt;
+                        // Add 1 second to avoid duplicate timestamp filtering by the App
+                        let packet_time = new Date(p.dt.replace(' ', 'T') + 'Z');
+                        packet_time.setUTCSeconds(packet_time.getUTCSeconds() + 1);
+                        const time_str = packet_time.toISOString().replace('T', ' ').substring(0, 19);
                         const coord_str = `+${parseFloat(p.lat).toFixed(6)},+${parseFloat(p.lng).toFixed(6)}`;
                         const pack_count = p.pack_count || 3000;
                         const v_battery = p.battery || "12.0";
