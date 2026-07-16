@@ -59,71 +59,108 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
                 let packets_to_publish = [];
                 
                 if (hours_only) {
-                    // HOURS SPOOF: Find longest Ignition OFF gap
-                    let gaps = [];
-                    let current_gap = [];
-                    let gap_start_idx = -1;
+                    // HOURS SPOOF: Find existing real trips and extend them into their post-trip parking gaps
+                    let trips = [];
+                    let current_trip = [];
+                    let trip_start_idx = -1;
                     
                     for (let i = 0; i < history_data.length; i++) {
                         const p = history_data[i];
-                        if (p.i_status === '0') {
-                            if (current_gap.length === 0) gap_start_idx = i;
-                            current_gap.push({packet: p, index: i});
+                        if (p.i_status === '1') {
+                            if (current_trip.length === 0) trip_start_idx = i;
+                            current_trip.push({packet: p, index: i});
                         } else {
-                            if (current_gap.length > 0) {
-                                gaps.push({packets: current_gap, start_idx: gap_start_idx});
-                                current_gap = [];
+                            if (current_trip.length > 0) {
+                                trips.push({packets: current_trip, start_idx: trip_start_idx});
+                                current_trip = [];
                             }
                         }
                     }
-                    if (current_gap.length > 0) {
-                        gaps.push({packets: current_gap, start_idx: gap_start_idx});
+                    if (current_trip.length > 0) {
+                        trips.push({packets: current_trip, start_idx: trip_start_idx});
                     }
                     
-                    if (gaps.length === 0) {
-                        throw new Error("No parking gaps found to inject hours into!");
+                    if (trips.length === 0) {
+                        throw new Error("No existing trips found on this day. Cannot extend hours when vehicle did not move.");
                     }
                     
-                    // Sort by length
-                    gaps.sort((a, b) => b.packets.length - a.packets.length);
-                    const best_gap = gaps[0];
+                    let hours_needed = target_hours;
                     
-                    // We need to inject target_hours.
-                    // Let's figure out how many packets equal target_hours
-                    const first_time = new Date(best_gap.packets[0].packet.dt.replace(' ', 'T') + "Z");
-                    
-                    logCallback(`[+] Selected longest parking gap starting at ${best_gap.packets[0].packet.dt}`);
-                    
-                    for (let i = 0; i < best_gap.packets.length; i++) {
-                        const item = best_gap.packets[i];
-                        const curr_time = new Date(item.packet.dt.replace(' ', 'T') + "Z");
-                        const elapsed_hours = (curr_time.getTime() - first_time.getTime()) / 3600000.0;
+                    for (let t = 0; t < trips.length; t++) {
+                        if (hours_needed <= 0.01) break;
                         
-                        if (elapsed_hours <= target_hours) {
-                            // Modify this packet to be ON
-                            let p = item.packet;
-                            // Add 1 second to avoid duplicate timestamp filtering by the App
-                            let packet_time = new Date(p.dt.replace(' ', 'T') + 'Z');
-                            packet_time.setUTCSeconds(packet_time.getUTCSeconds() + 1);
-                            const time_str = packet_time.toISOString().replace('T', ' ').substring(0, 19);
-                            const coord_str = `+${parseFloat(p.lat).toFixed(6)},+${parseFloat(p.lng).toFixed(6)}`;
-                            
-                            // Reconstruct odo correctly
-                            let odo_str = p.totel_km;
-                            if (!odo_str.includes('-')) odo_str = `${odo_str}-${odo_str}`;
-                            
-                            const pack_count = p.pack_count || 3000;
-                            const v_battery = p.battery || "12.0";
-                            const v_overspeed = p.overspeed || "0-0";
-                            const status_bit_val = "0-1-0-1-1"; // IGN ON
-                            const jcb_ac_val = "1-1-1-1";
-                            const jcb_bit_val = 1;
-                            
-                            const payload = `##,${imei},0,${time_str},${coord_str},0,${v_battery},0,1,91.26,${odo_str},${v_overspeed},0-0,0-0,+0.0,0,${jcb_ac_val},2000-00-00 00:00:00,2000-00-00 00:00:00,12,3950,0,${status_bit_val},0,0,0-0,0,0,${pack_count},${jcb_bit_val},0-26,3950,${jcb_bit_val},0,0,0,00000-00,$`;
-                            packets_to_publish.push(payload);
-                        } else {
-                            break;
+                        const trip = trips[t];
+                        const trip_end_idx = trip.start_idx + trip.packets.length - 1;
+                        
+                        // Find the parking gap immediately after this trip
+                        let next_trip_start_idx = history_data.length;
+                        if (t + 1 < trips.length) {
+                            next_trip_start_idx = trips[t+1].start_idx;
                         }
+                        
+                        let gap_packets = [];
+                        for (let i = trip_end_idx + 1; i < next_trip_start_idx; i++) {
+                            if (history_data[i].i_status === '0') {
+                                gap_packets.push(history_data[i]);
+                            }
+                        }
+                        
+                        if (gap_packets.length === 0) continue;
+                        
+                        const first_time = new Date(gap_packets[0].dt.replace(' ', 'T') + "Z");
+                        logCallback(`[+] Extending trip #${t+1} using parking gap starting at ${gap_packets[0].dt}`);
+                        
+                        let last_p = null;
+                        for (let i = 0; i < gap_packets.length; i++) {
+                            let p = gap_packets[i];
+                            const curr_time = new Date(p.dt.replace(' ', 'T') + "Z");
+                            const elapsed_hours = (curr_time.getTime() - first_time.getTime()) / 3600000.0;
+                            
+                            if (elapsed_hours <= hours_needed) {
+                                // Add 1 second to avoid duplicate timestamp filtering by the App
+                                let packet_time = new Date(p.dt.replace(' ', 'T') + 'Z');
+                                packet_time.setUTCSeconds(packet_time.getUTCSeconds() + 1);
+                                const time_str = packet_time.toISOString().replace('T', ' ').substring(0, 19);
+                                const coord_str = `+${parseFloat(p.lat).toFixed(6)},+${parseFloat(p.lng).toFixed(6)}`;
+                                
+                                let odo_str = p.totel_km;
+                                if (!odo_str.includes('-')) odo_str = `${odo_str}-${odo_str}`;
+                                
+                                const pack_count = p.pack_count || 3000;
+                                const v_battery = p.battery || "12.0";
+                                const v_overspeed = p.overspeed || "0-0";
+                                const status_bit_val = "0-1-0-1-1"; // IGN ON
+                                const jcb_ac_val = "1-1-1-1";
+                                const jcb_bit_val = 1;
+                                
+                                const payload = `##,${imei},0,${time_str},${coord_str},0,${v_battery},0,1,91.26,${odo_str},${v_overspeed},0-0,0-0,+0.0,0,${jcb_ac_val},2000-00-00 00:00:00,2000-00-00 00:00:00,12,3950,0,${status_bit_val},0,0,0-0,0,0,${pack_count},${jcb_bit_val},0-26,3950,${jcb_bit_val},0,0,0,00000-00,$`;
+                                packets_to_publish.push(payload);
+                                last_p = p;
+                            } else {
+                                break;
+                            }
+                        }
+                        
+                        if (last_p) {
+                            // Inject ONE final Ignition 0 packet to cleanly close the trip!
+                            let final_packet_time = new Date(last_p.dt.replace(' ', 'T') + 'Z');
+                            final_packet_time.setUTCSeconds(final_packet_time.getUTCSeconds() + 2);
+                            const final_time_str = final_packet_time.toISOString().replace('T', ' ').substring(0, 19);
+                            const final_coord_str = `+${parseFloat(last_p.lat).toFixed(6)},+${parseFloat(last_p.lng).toFixed(6)}`;
+                            let final_odo_str = last_p.totel_km;
+                            if (!final_odo_str.includes('-')) final_odo_str = `${final_odo_str}-${final_odo_str}`;
+                            
+                            const final_payload = `##,${imei},0,${final_time_str},${final_coord_str},0,${last_p.battery || "12.0"},0,0,91.26,${final_odo_str},0-0,0-0,0-0,+0.0,0,0-0-0-0,2000-00-00 00:00:00,2000-00-00 00:00:00,12,3950,0,1-0-0-0-0,0,0,0-0,0,0,3000,0,0-26,3950,0,0,0,0,00000-00,$`;
+                            packets_to_publish.push(final_payload);
+                            
+                            const curr_time = new Date(last_p.dt.replace(' ', 'T') + "Z");
+                            const actually_added_hours = (curr_time.getTime() - first_time.getTime()) / 3600000.0;
+                            hours_needed -= actually_added_hours;
+                        }
+                    }
+                    
+                    if (hours_needed > 0.1) {
+                        logCallback(`[+] Warning: Could only fit ${(target_hours - hours_needed).toFixed(2)} hours out of ${target_hours} requested before running out of parking gaps.`);
                     }
                     
                 } else {
