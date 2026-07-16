@@ -272,8 +272,8 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
                     const odo_str = `${curr_odo.toFixed(3)}-${curr_today_odo.toFixed(3)}`;
                     const p_count = item.pack_count;
                     
-                    // Injection parameters:
-                    const payload = `##,${imei},0,${time_str},${coord_str},${active_speed},${v_battery},0,${ignition_val},91.26,${odo_str},${v_overspeed},0-0,0-0,+0.0,0,${jcb_ac_val},2000-00-00 00:00:00,2000-00-00 00:00:00,12,3950,0,${status_bit_val},0,0,0-0,0,0,${p_count},${jcb_bit_val},0-26,3950,${jcb_bit_val},0,0,0,00000-00,$`;
+                    // Injection parameters: Force speed to 0 in the payload so the Route Map doesn't think it's moving, but keep odometer increasing
+                    const payload = `##,${imei},0,${time_str},${coord_str},0,${v_battery},0,${ignition_val},91.26,${odo_str},${v_overspeed},0-0,0-0,+0.0,0,${jcb_ac_val},2000-00-00 00:00:00,2000-00-00 00:00:00,12,3950,0,${status_bit_val},0,0,0-0,0,0,${p_count},${jcb_bit_val},0-26,3950,${jcb_bit_val},0,0,0,00000-00,$`;
                     
                     client.publish(topic, payload);
                     await new Promise(r => setTimeout(r, 100)); // 100ms safe interval
