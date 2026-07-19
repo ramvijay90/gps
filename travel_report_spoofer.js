@@ -84,15 +84,11 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
                         throw new Error("No existing trips found on this day. Cannot extend hours when vehicle did not move.");
                     }
                     
-                    let hours_needed = target_hours;
-                    
+                    // Calculate the post-trip parking gap for each trip
                     for (let t = 0; t < trips.length; t++) {
-                        if (hours_needed <= 0.01) break;
-                        
                         const trip = trips[t];
                         const trip_end_idx = trip.start_idx + trip.packets.length - 1;
                         
-                        // Find the parking gap immediately after this trip
                         let next_trip_start_idx = history_data.length;
                         if (t + 1 < trips.length) {
                             next_trip_start_idx = trips[t+1].start_idx;
@@ -104,11 +100,26 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
                                 gap_packets.push(history_data[i]);
                             }
                         }
+                        trip.gap_packets = gap_packets;
+                        trip.original_index = t + 1;
+                    }
+                    
+                    // Sort trips by the length of their parking gap (descending)
+                    // This ensures we pick the largest parking gap (usually the end of shift) to fit the entire requested hours without fragmentation.
+                    trips.sort((a, b) => b.gap_packets.length - a.gap_packets.length);
+                    
+                    let hours_needed = target_hours;
+                    
+                    for (let t = 0; t < trips.length; t++) {
+                        if (hours_needed <= 0.01) break;
+                        
+                        const trip = trips[t];
+                        const gap_packets = trip.gap_packets;
                         
                         if (gap_packets.length === 0) continue;
                         
                         const first_time = new Date(gap_packets[0].dt.replace(' ', 'T') + "Z");
-                        logCallback(`[+] Extending trip #${t+1} using parking gap starting at ${gap_packets[0].dt}`);
+                        logCallback(`[+] Extending trip #${trip.original_index} using parking gap starting at ${gap_packets[0].dt}`);
                         
                         let last_p = null;
                         for (let i = 0; i < gap_packets.length; i++) {
@@ -139,6 +150,8 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
                                 packets_to_publish.push(payload);
                                 last_p = p;
                             } else {
+                                // We reached the requested hours! Stop adding more packets to this gap.
+                                hours_needed = 0;
                                 break;
                             }
                         }
@@ -157,9 +170,12 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
                             const final_payload = `##,${imei},0,${final_time_str},${final_coord_str},0,${last_p.battery || "12.0"},${v_itime},0,${v_course},${final_odo_str},0-0,0-0,0-0,+0.0,0,0-0-0-0,2000-00-00 00:00:00,2000-00-00 00:00:00,12,3950,0,1-0-0-0-0,0,0,0-0,0,0,3000,0,0-26,3950,0,0,0,0,00000-00,$`;
                             packets_to_publish.push(final_payload);
                             
-                            const curr_time = new Date(last_p.dt.replace(' ', 'T') + "Z");
-                            const actually_added_hours = (curr_time.getTime() - first_time.getTime()) / 3600000.0;
-                            hours_needed -= actually_added_hours;
+                            // If we didn't fulfill the hours completely within this gap (because the gap ended), subtract what we did add
+                            if (hours_needed > 0) {
+                                const curr_time = new Date(last_p.dt.replace(' ', 'T') + "Z");
+                                const actually_added_hours = (curr_time.getTime() - first_time.getTime()) / 3600000.0;
+                                hours_needed -= actually_added_hours;
+                            }
                         }
                     }
                     
