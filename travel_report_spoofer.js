@@ -168,7 +168,7 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
                     }
                     
                 } else {
-                    // KM SPOOF: Find a real trip, distribute KM over it, apply to rest of day.
+                    // KM SPOOF: Find real trips, distribute KM PROPORTIONALLY over ALL trips.
                     let trips = [];
                     let current_trip = [];
                     let trip_start_idx = -1;
@@ -193,86 +193,100 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
                         throw new Error("No moving trips found today. Cannot apply distance spoof.");
                     }
                     
-                    // Pick the longest trip
-                    trips.sort((a, b) => b.packets.length - a.packets.length);
-                    const best_trip = trips[0];
+                    // Calculate total packets across all trips to find proportional weight
+                    let total_packets = 0;
+                    for (const trip of trips) {
+                        total_packets += trip.packets.length;
+                    }
                     
-                    logCallback(`[+] Selected longest trip starting at ${best_trip.packets[0].packet.dt} with ${best_trip.packets.length} packets.`);
+                    logCallback(`[+] Found ${trips.length} real trips with ${total_packets} total packets. Distributing ${target_added_val.toFixed(2)} KM proportionally...`);
                     
-                    const trip_len = best_trip.packets.length;
-                    
-                    // We modify the trip packets to linearly add the target_added_val
-                    for (let i = 0; i < trip_len; i++) {
-                        const item = best_trip.packets[i];
-                        let p = item.packet;
+                    let cumulative_added_odo = 0; // Track how much we have shifted the base odometer for subsequent trips
+
+                    for (let t = 0; t < trips.length; t++) {
+                        const trip = trips[t];
+                        const trip_len = trip.packets.length;
                         
-                        // Current offset (spread evenly across the trip)
-                        let offset_km = target_added_val;
-                        if (trip_len > 1) {
-                            offset_km = (i / (trip_len - 1)) * target_added_val;
+                        // Proportional amount to add for THIS trip
+                        const trip_added_km = target_added_val * (trip_len / total_packets);
+                        
+                        // We modify the trip packets to linearly add the trip_added_km
+                        for (let i = 0; i < trip_len; i++) {
+                            const item = trip.packets[i];
+                            let p = item.packet;
+                            
+                            // Current offset inside THIS trip
+                            let offset_km = trip_added_km;
+                            if (trip_len > 1) {
+                                offset_km = (i / (trip_len - 1)) * trip_added_km;
+                            }
+                            
+                            let base_odo = 0;
+                            let base_today = 0;
+                            if (p.totel_km) {
+                                if (p.totel_km.includes('-')) {
+                                    base_odo = parseFloat(p.totel_km.split('-')[0]);
+                                    base_today = parseFloat(p.totel_km.split('-')[1]);
+                                } else {
+                                    base_odo = parseFloat(p.totel_km);
+                                    base_today = parseFloat(p.totel_km);
+                                }
+                            }
+                            
+                            // Add the base shift from previous trips + the offset from THIS trip
+                            const new_odo = base_odo + cumulative_added_odo + offset_km;
+                            const new_today = base_today + cumulative_added_odo + offset_km;
+                            const odo_str = `${new_odo.toFixed(3)}-${new_today.toFixed(3)}`;
+                            
+                            // Add 1 second to avoid duplicate timestamp filtering by the App
+                            let packet_time = new Date(p.dt.replace(' ', 'T') + 'Z');
+                            packet_time.setUTCSeconds(packet_time.getUTCSeconds() + 1);
+                            const time_str = packet_time.toISOString().replace('T', ' ').substring(0, 19);
+                            const coord_str = `+${parseFloat(p.lat).toFixed(6)},+${parseFloat(p.lng).toFixed(6)}`;
+                            const pack_count = p.pack_count || 3000;
+                            const v_battery = p.battery || "12.0";
+                            const v_overspeed = p.overspeed || "0-0";
+                            const ignition_val = p.i_status; // Should be 1
+                            const jcb_ac_val = p.jcb_ac || "0-0-0-0";
+                            const speed_val = p.speed || 0;
+                            
+                            const status_bit_val = ignition_val == "1" ? "0-1-0-1-1" : "1-0-0-0-0";
+                            
+                            const payload = `##,${imei},0,${time_str},${coord_str},${speed_val},${v_battery},0,${ignition_val},91.26,${odo_str},${v_overspeed},0-0,0-0,+0.0,0,${jcb_ac_val},2000-00-00 00:00:00,2000-00-00 00:00:00,12,3950,0,${status_bit_val},0,0,0-0,0,0,${pack_count},0,0-26,3950,0,0,0,0,00000-00,$`;
+                            packets_to_publish.push(payload);
                         }
                         
-                        let base_odo = 0;
-                        let base_today = 0;
-                        if (p.totel_km) {
-                            if (p.totel_km.includes('-')) {
-                                base_odo = parseFloat(p.totel_km.split('-')[0]);
-                                base_today = parseFloat(p.totel_km.split('-')[1]);
+                        // Shift the cumulative offset for all future trips!
+                        cumulative_added_odo += trip_added_km;
+                        
+                        // Inject ONE final Ignition 0 packet to lock in the high Odometer for THIS trip
+                        const last_p = history_data[trip.start_idx + trip_len - 1];
+                        let final_packet_time = new Date(last_p.dt.replace(' ', 'T') + 'Z');
+                        final_packet_time.setUTCSeconds(final_packet_time.getUTCSeconds() + 2);
+                        const final_time_str = final_packet_time.toISOString().replace('T', ' ').substring(0, 19);
+                        
+                        let final_base_odo = 0;
+                        let final_base_today = 0;
+                        if (last_p.totel_km) {
+                            if (last_p.totel_km.includes('-')) {
+                                final_base_odo = parseFloat(last_p.totel_km.split('-')[0]);
+                                final_base_today = parseFloat(last_p.totel_km.split('-')[1]);
                             } else {
-                                base_odo = parseFloat(p.totel_km);
-                                base_today = parseFloat(p.totel_km);
+                                final_base_odo = parseFloat(last_p.totel_km);
+                                final_base_today = parseFloat(last_p.totel_km);
                             }
                         }
                         
-                        const new_odo = base_odo + offset_km;
-                        const new_today = base_today + offset_km;
-                        const odo_str = `${new_odo.toFixed(3)}-${new_today.toFixed(3)}`;
+                        // Final packet has the full cumulative shift added to it
+                        const final_odo_str = `${(final_base_odo + cumulative_added_odo).toFixed(3)}-${(final_base_today + cumulative_added_odo).toFixed(3)}`;
+                        const final_coord_str = `+${parseFloat(last_p.lat).toFixed(6)},+${parseFloat(last_p.lng).toFixed(6)}`;
                         
-                        // Add 1 second to avoid duplicate timestamp filtering by the App
-                        let packet_time = new Date(p.dt.replace(' ', 'T') + 'Z');
-                        packet_time.setUTCSeconds(packet_time.getUTCSeconds() + 1);
-                        const time_str = packet_time.toISOString().replace('T', ' ').substring(0, 19);
-                        const coord_str = `+${parseFloat(p.lat).toFixed(6)},+${parseFloat(p.lng).toFixed(6)}`;
-                        const pack_count = p.pack_count || 3000;
-                        const v_battery = p.battery || "12.0";
-                        const v_overspeed = p.overspeed || "0-0";
-                        const ignition_val = p.i_status; // Should be 1
-                        const jcb_ac_val = p.jcb_ac || "0-0-0-0";
-                        const speed_val = p.speed || 0;
-                        
-                        // We must reconstruct the status bits identically if possible, but default is fine
-                        const status_bit_val = ignition_val == "1" ? "0-1-0-1-1" : "1-0-0-0-0";
-                        
-                        const payload = `##,${imei},0,${time_str},${coord_str},${speed_val},${v_battery},0,${ignition_val},91.26,${odo_str},${v_overspeed},0-0,0-0,+0.0,0,${jcb_ac_val},2000-00-00 00:00:00,2000-00-00 00:00:00,12,3950,0,${status_bit_val},0,0,0-0,0,0,${pack_count},0,0-26,3950,0,0,0,0,00000-00,$`;
-                        packets_to_publish.push(payload);
+                        const v_itime = last_p.i_time || "0";
+                        const v_course = last_p.course || "0.00";
+                        const final_payload = `##,${imei},0,${final_time_str},${final_coord_str},0,${last_p.battery || "12.0"},${v_itime},0,${v_course},${final_odo_str},0-0,0-0,0-0,+0.0,0,0-0-0-0,2000-00-00 00:00:00,2000-00-00 00:00:00,12,3950,0,1-0-0-0-0,0,0,0-0,0,0,3000,0,0-26,3950,0,0,0,0,00000-00,$`;
+                        packets_to_publish.push(final_payload);
                     }
-                    
-                    // Inject ONE final Ignition 0 packet to lock in the high Odometer for the Travel Report
-                    const last_p = history_data[best_trip.start_idx + trip_len - 1];
-                    let final_packet_time = new Date(last_p.dt.replace(' ', 'T') + 'Z');
-                    final_packet_time.setUTCSeconds(final_packet_time.getUTCSeconds() + 2);
-                    const final_time_str = final_packet_time.toISOString().replace('T', ' ').substring(0, 19);
-                    
-                    let final_base_odo = 0;
-                    let final_base_today = 0;
-                    if (last_p.totel_km) {
-                        if (last_p.totel_km.includes('-')) {
-                            final_base_odo = parseFloat(last_p.totel_km.split('-')[0]);
-                            final_base_today = parseFloat(last_p.totel_km.split('-')[1]);
-                        } else {
-                            final_base_odo = parseFloat(last_p.totel_km);
-                            final_base_today = parseFloat(last_p.totel_km);
-                        }
-                    }
-                    const final_odo_str = `${(final_base_odo + target_added_val).toFixed(3)}-${(final_base_today + target_added_val).toFixed(3)}`;
-                    const final_coord_str = `+${parseFloat(last_p.lat).toFixed(6)},+${parseFloat(last_p.lng).toFixed(6)}`;
-                    
-                    const final_payload = `##,${imei},0,${final_time_str},${final_coord_str},0,${last_p.battery || "12.0"},0,0,91.26,${final_odo_str},0-0,0-0,0-0,+0.0,0,0-0-0-0,2000-00-00 00:00:00,2000-00-00 00:00:00,12,3950,0,1-0-0-0-0,0,0,0-0,0,0,3000,0,0-26,3950,0,0,0,0,00000-00,$`;
-                    packets_to_publish.push(final_payload);
-                    
-                    // Removed the logic that modifies all packets after the trip.
-                    // Injecting duplicates for the rest of the day causes later trips to also gain the offset!
-                }
+                } // <--- Added this brace
                 
                 logCallback(`[+] Ready to override ${packets_to_publish.length} packets in the database...`);
                 
