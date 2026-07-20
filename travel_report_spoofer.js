@@ -25,25 +25,7 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
         });
         
         if (Array.isArray(res.data) && res.data.length > 0) {
-            // Filter history_data to keep only the original packets sent by the physical tracker.
-            // Original packets have their server timestamp (dt_s, in IST) very close to their GPS timestamp (dt, in UTC).
-            // Spoofed packets written later have a large time difference between dt and dt_s.
-            const original_packets = res.data.filter(p => {
-                if (!p.dt_s || !p.dt) return true;
-                try {
-                    const packet_time = new Date(p.dt.replace(' ', 'T') + 'Z').getTime();
-                    const server_time = new Date(p.dt_s.replace(' ', 'T') + '+05:30').getTime();
-                    const diff_seconds = Math.abs(server_time - packet_time) / 1000;
-                    return diff_seconds < 3600; // < 1 hour difference
-                } catch (e) {
-                    return true;
-                }
-            });
-            
-            if (original_packets.length < res.data.length) {
-                logCallback(`[+] Filtered out ${res.data.length - original_packets.length} previously spoofed packets from history.`);
-            }
-            history_data = original_packets;
+            history_data = res.data;
         }
     } catch (e) {
         logCallback(`[-] Failed to fetch history: ${e.message}`);
@@ -231,34 +213,15 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
                     
                     const trip_len = best_trip.packets.length;
                     
-                    // Count moving packets in the best trip
-                    let moving_packets_count = 0;
-                    for (let i = 0; i < trip_len; i++) {
-                        const speed_val = parseFloat(best_trip.packets[i].packet.speed || '0');
-                        if (speed_val > 0) {
-                            moving_packets_count++;
-                        }
-                    }
-                    
-                    let step_km = 0.0;
-                    if (moving_packets_count > 0) {
-                        step_km = target_added_val / moving_packets_count;
-                        logCallback(`[+] Found ${moving_packets_count} moving packets in longest trip. Adding ${step_km.toFixed(6)} KM per moving packet.`);
-                    } else {
-                        step_km = target_added_val / trip_len;
-                        logCallback(`[+] Warning: No moving packets found. Distributing flat.`);
-                    }
-                    
-                    let current_offset = 0.0;
-                    
-                    // We modify the trip packets to add the target_added_val only when moving (speed > 0)
+                    // We modify the trip packets to linearly add the target_added_val
                     for (let i = 0; i < trip_len; i++) {
                         const item = best_trip.packets[i];
                         let p = item.packet;
-                        const speed_val = parseFloat(p.speed || '0');
                         
-                        if (speed_val > 0) {
-                            current_offset += step_km;
+                        // Current offset (spread evenly across the trip)
+                        let offset_km = target_added_val;
+                        if (trip_len > 1) {
+                            offset_km = (i / (trip_len - 1)) * target_added_val;
                         }
                         
                         let base_odo = 0;
@@ -273,8 +236,8 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
                             }
                         }
                         
-                        const new_odo = base_odo + current_offset;
-                        const new_today = base_today + current_offset;
+                        const new_odo = base_odo + offset_km;
+                        const new_today = base_today + offset_km;
                         const odo_str = `${new_odo.toFixed(3)}-${new_today.toFixed(3)}`;
                         
                         // Add 1 second to avoid duplicate timestamp filtering by the App
@@ -287,6 +250,7 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
                         const v_overspeed = p.overspeed || "0-0";
                         const ignition_val = p.i_status; // Should be 1
                         const jcb_ac_val = p.jcb_ac || "0-0-0-0";
+                        const speed_val = p.speed || 0;
                         
                         // We must reconstruct the status bits identically if possible, but default is fine
                         const status_bit_val = ignition_val == "1" ? "0-1-0-1-1" : "1-0-0-0-0";
