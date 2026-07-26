@@ -484,6 +484,33 @@ app.post('/api/refresh_cache', (req, res) => {
                         run_time_str = String(sum_seconds);
                         normal_duration_str = trips_durations.join(",");
                         engine.log(`[REFRESH] [${imei}] Auto-calculated Run Time: ${(sum_seconds/3600.0).toFixed(2)} Hrs, Durations: [${trips_durations.map(d => (d/60.0).toFixed(1)).join(",")}] Min`);
+                    } else {
+                        if (normal_duration_str === null || normal_duration_str === undefined || normal_duration_str.trim() === "") {
+                            const target_sec = Math.round(parseFloat(override_hours) * 3600);
+                            const raw_sum = trips_durations.reduce((a, b) => a + b, 0);
+                            if (raw_sum > 0) {
+                                const ratio = target_sec / raw_sum;
+                                let scaled = trips_durations.map(d => Math.round(d * ratio));
+                                let current_sum = scaled.reduce((a, b) => a + b, 0);
+                                let diff = target_sec - current_sum;
+                                if (diff !== 0 && scaled.length > 0) {
+                                    let max_idx = scaled.indexOf(Math.max(...scaled));
+                                    scaled[max_idx] += diff;
+                                }
+                                trips_durations = scaled;
+                            } else {
+                                const count = trips_durations.length;
+                                if (count > 0) {
+                                    const each_val = Math.round(target_sec / count);
+                                    trips_durations = new Array(count).fill(each_val);
+                                } else {
+                                    trips_durations = [target_sec];
+                                }
+                            }
+                            run_time_str = String(trips_durations.reduce((a, b) => a + b, 0));
+                            normal_duration_str = trips_durations.join(",");
+                            engine.log(`[REFRESH] [${imei}] Auto-scaled raw durations to match override hours ${override_hours}: [${trips_durations.map(d => (d/60.0).toFixed(1)).join(",")}] Min`);
+                        }
                     }
                 }
             }
