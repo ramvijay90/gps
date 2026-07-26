@@ -578,11 +578,27 @@ app.post('/api/refresh_cache', (req, res) => {
                 // Update existing row
                 const updates = [];
                 if (total_km_str !== null) updates.push(`km = '${total_km_str}'`);
-                if (normal_km_str !== null) updates.push(`normal_km = '${normal_km_str}'`);
-                if (run_time_str !== null) updates.push(`run_time = '${run_time_str}'`);
-                if (normal_duration_str !== null) updates.push(`normal_duration = '${normal_duration_str}'`);
-                if (normal_start_time_str !== null) updates.push(`normal_start_time = '${normal_start_time_str}'`);
-                if (normal_end_time_str !== null) updates.push(`normal_end_time = '${normal_end_time_str}'`);
+                if (normal_km_str !== null) {
+                    updates.push(`normal_km = '${normal_km_str}'`);
+                    updates.push(`ac_overall_km = '${normal_km_str}'`);
+                }
+                if (run_time_str !== null) {
+                    updates.push(`run_time = '${run_time_str}'`);
+                    updates.push(`ac_run_time = '${run_time_str}'`);
+                    updates.push(`ac_idle_time = '0'`);
+                }
+                if (normal_duration_str !== null) {
+                    updates.push(`normal_duration = '${normal_duration_str}'`);
+                    updates.push(`ac_overall_time = '${normal_duration_str}'`);
+                }
+                if (normal_start_time_str !== null) {
+                    updates.push(`normal_start_time = '${normal_start_time_str}'`);
+                    updates.push(`ac_start_time = '${normal_start_time_str}'`);
+                }
+                if (normal_end_time_str !== null) {
+                    updates.push(`normal_end_time = '${normal_end_time_str}'`);
+                    updates.push(`ac_end_time = '${normal_end_time_str}'`);
+                }
                 
                 if (updates.length > 0) {
                     const update_query = `UPDATE reports SET ${updates.join(', ')} WHERE imei = '${imei}' AND dt = '${target_date_db}'`;
@@ -603,11 +619,27 @@ app.post('/api/refresh_cache', (req, res) => {
                 const vals = [`'${imei}'`, `'${target_date_db}'`, `'trichy'`];
                 
                 if (total_km_str !== null) { cols.push("km"); vals.push(`'${total_km_str}'`); }
-                if (normal_km_str !== null) { cols.push("normal_km"); vals.push(`'${normal_km_str}'`); }
-                if (run_time_str !== null) { cols.push("run_time"); vals.push(`'${run_time_str}'`); }
-                if (normal_duration_str !== null) { cols.push("normal_duration"); vals.push(`'${normal_duration_str}'`); }
-                if (normal_start_time_str !== null) { cols.push("normal_start_time"); vals.push(`'${normal_start_time_str}'`); }
-                if (normal_end_time_str !== null) { cols.push("normal_end_time"); vals.push(`'${normal_end_time_str}'`); }
+                if (normal_km_str !== null) { 
+                    cols.push("normal_km"); vals.push(`'${normal_km_str}'`); 
+                    cols.push("ac_overall_km"); vals.push(`'${normal_km_str}'`);
+                }
+                if (run_time_str !== null) { 
+                    cols.push("run_time"); vals.push(`'${run_time_str}'`); 
+                    cols.push("ac_run_time"); vals.push(`'${run_time_str}'`); 
+                    cols.push("ac_idle_time"); vals.push(`'0'`); 
+                }
+                if (normal_duration_str !== null) { 
+                    cols.push("normal_duration"); vals.push(`'${normal_duration_str}'`); 
+                    cols.push("ac_overall_time"); vals.push(`'${normal_duration_str}'`); 
+                }
+                if (normal_start_time_str !== null) { 
+                    cols.push("normal_start_time"); vals.push(`'${normal_start_time_str}'`); 
+                    cols.push("ac_start_time"); vals.push(`'${normal_start_time_str}'`); 
+                }
+                if (normal_end_time_str !== null) { 
+                    cols.push("normal_end_time"); vals.push(`'${normal_end_time_str}'`); 
+                    cols.push("ac_end_time"); vals.push(`'${normal_end_time_str}'`); 
+                }
                 
                 const insert_query = `INSERT INTO reports (${cols.join(', ')}) VALUES (${vals.join(', ')})`;
                 const insert_params = new URLSearchParams();
