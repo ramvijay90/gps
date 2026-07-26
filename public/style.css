@@ -287,6 +287,9 @@ select.form-control:focus {
     font-family: 'Consolas', 'Courier New', monospace;
     font-size: 0.85rem;
     overflow-y: auto;
+    overflow-x: hidden;
+    white-space: pre-wrap;
+    word-break: break-all;
     box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
 }
 
