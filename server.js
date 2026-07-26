@@ -318,6 +318,8 @@ app.post('/api/refresh_cache', (req, res) => {
             let normal_km_str = null;
             let run_time_str = null;
             let normal_duration_str = null;
+            let normal_start_time_str = null;
+            let normal_end_time_str = null;
             
             let use_override_km = false;
             if (override_km !== undefined && String(override_km).trim() !== "") {
@@ -406,13 +408,15 @@ app.post('/api/refresh_cache', (req, res) => {
                     
                     const trips_km = [];
                     const trips_durations = [];
+                    const trips_start_times = [];
+                    const trips_end_times = [];
                     let current_trip_odos = [];
                     let current_trip_times = [];
                     
                     telemetry_data.forEach(pkt => {
                         const speed = parseFloat(pkt.speed || 0);
                         const totel_km = pkt.totel_km || "";
-                        const time_str = pkt.time || "";
+                        const time_str = pkt.dt || "";
                         if (!totel_km || !time_str) return;
                         
                         let val;
@@ -436,6 +440,11 @@ app.post('/api/refresh_cache', (req, res) => {
                                     if (trip_dist > 0.01 || trip_dur > 10) {
                                         trips_km.push(parseFloat(trip_dist.toFixed(3)));
                                         trips_durations.push(Math.round(trip_dur));
+                                        
+                                        const min_dt = new Date(Math.min(...current_trip_times.map(t=>t.getTime())));
+                                        const max_dt = new Date(Math.max(...current_trip_times.map(t=>t.getTime())));
+                                        trips_start_times.push(min_dt.toISOString().replace('T', ' ').substring(0, 19));
+                                        trips_end_times.push(max_dt.toISOString().replace('T', ' ').substring(0, 19));
                                     }
                                     current_trip_odos = [];
                                     current_trip_times = [];
@@ -450,15 +459,24 @@ app.post('/api/refresh_cache', (req, res) => {
                         if (trip_dist > 0.01 || trip_dur > 10) {
                             trips_km.push(parseFloat(trip_dist.toFixed(3)));
                             trips_durations.push(Math.round(trip_dur));
+                            
+                            const min_dt = new Date(Math.min(...current_trip_times.map(t=>t.getTime())));
+                            const max_dt = new Date(Math.max(...current_trip_times.map(t=>t.getTime())));
+                            trips_start_times.push(min_dt.toISOString().replace('T', ' ').substring(0, 19));
+                            trips_end_times.push(max_dt.toISOString().replace('T', ' ').substring(0, 19));
                         }
                     }
                     
                     if (trips_km.length === 0) {
                         trips_km.push(parseFloat(total_km.toFixed(3)));
                         trips_durations.push(0);
+                        trips_start_times.push(`${date} 09:00:00`);
+                        trips_end_times.push(`${date} 09:00:00`);
                     }
                     
                     normal_km_str = trips_km.join(",");
+                    normal_start_time_str = trips_start_times.join(",");
+                    normal_end_time_str = trips_end_times.join(",");
                     engine.log(`[REFRESH] [${imei}] Auto-calculated Run KM: ${total_km_str}, Trips: [${normal_km_str}]`);
                     
                     if (!use_override_hours) {
@@ -477,7 +495,7 @@ app.post('/api/refresh_cache', (req, res) => {
                 
                 telemetry_data.forEach(pkt => {
                     const speed = parseFloat(pkt.speed || 0);
-                    const time_str = pkt.time || "";
+                    const time_str = pkt.dt || "";
                     if (!time_str) return;
                     try {
                         const pkt_dt = new Date(time_str.replace(" ", "T") + "Z");
@@ -563,6 +581,8 @@ app.post('/api/refresh_cache', (req, res) => {
                 if (normal_km_str !== null) updates.push(`normal_km = '${normal_km_str}'`);
                 if (run_time_str !== null) updates.push(`run_time = '${run_time_str}'`);
                 if (normal_duration_str !== null) updates.push(`normal_duration = '${normal_duration_str}'`);
+                if (normal_start_time_str !== null) updates.push(`normal_start_time = '${normal_start_time_str}'`);
+                if (normal_end_time_str !== null) updates.push(`normal_end_time = '${normal_end_time_str}'`);
                 
                 if (updates.length > 0) {
                     const update_query = `UPDATE reports SET ${updates.join(', ')} WHERE imei = '${imei}' AND dt = '${target_date_db}'`;
@@ -586,6 +606,8 @@ app.post('/api/refresh_cache', (req, res) => {
                 if (normal_km_str !== null) { cols.push("normal_km"); vals.push(`'${normal_km_str}'`); }
                 if (run_time_str !== null) { cols.push("run_time"); vals.push(`'${run_time_str}'`); }
                 if (normal_duration_str !== null) { cols.push("normal_duration"); vals.push(`'${normal_duration_str}'`); }
+                if (normal_start_time_str !== null) { cols.push("normal_start_time"); vals.push(`'${normal_start_time_str}'`); }
+                if (normal_end_time_str !== null) { cols.push("normal_end_time"); vals.push(`'${normal_end_time_str}'`); }
                 
                 const insert_query = `INSERT INTO reports (${cols.join(', ')}) VALUES (${vals.join(', ')})`;
                 const insert_params = new URLSearchParams();
@@ -679,7 +701,7 @@ app.post('/api/fetch_existing_trips', async (req, res) => {
                 history_data.forEach(pkt => {
                     const speed = parseFloat(pkt.speed || 0);
                     const totel_km = pkt.totel_km || "";
-                    const time_str = pkt.time || "";
+                    const time_str = pkt.dt || "";
                     if (!totel_km || !time_str) return;
                     try {
                         const val = totel_km.includes("-") ? parseFloat(totel_km.split("-")[0]) : parseFloat(totel_km);
