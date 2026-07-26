@@ -394,6 +394,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const refreshDateStr = refreshDateEl ? refreshDateEl.value : "";
                 const overrideKm = document.getElementById('override_km').value;
                 const overrideNormalKm = document.getElementById('override_normal_km').value;
+                const overrideHours = document.getElementById('override_hours').value;
+                const overrideNormalDuration = document.getElementById('override_normal_duration').value;
                 
                 if (!refreshDateStr) {
                     alert("Please select a target date to refresh.");
@@ -405,7 +407,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     imeis: imeis,
                     date: refreshDateStr,
                     override_km: overrideKm,
-                    override_normal_km: overrideNormalKm
+                    override_normal_km: overrideNormalKm,
+                    override_hours: overrideHours,
+                    override_normal_duration: overrideNormalDuration
                 };
             }
 
@@ -1033,11 +1037,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     body: JSON.stringify({ imei, date })
                 });
                 const data = await res.json();
-                if (data.success && data.normal_km) {
-                    overrideNormalKmEl.value = data.normal_km;
-                    alert('Successfully fetched existing trips!');
+                if (data.success) {
+                    if (data.normal_km) {
+                        overrideNormalKmEl.value = data.normal_km;
+                        const sum = data.normal_km.split(',').map(parseFloat).filter(v => !isNaN(v)).reduce((a, b) => a + b, 0);
+                        overrideKmEl.value = sum.toFixed(3);
+                        alert('Successfully fetched existing trips!');
+                    } else {
+                        alert('No existing trips found in database for this date.');
+                    }
                 } else {
-                    alert('No existing trips found in database for this date. (You can still run spoofer first, or leave blank to auto-calculate from raw data)');
+                    alert('Error: ' + data.message);
                 }
             } catch (e) {
                 alert('Failed to connect to backend.');
@@ -1045,6 +1055,149 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnFetchTrips.innerText = originalText;
                 btnFetchTrips.disabled = false;
             }
+        });
+    }
+
+    const btnFetchHours = document.getElementById('btn-fetch-hours');
+    const btnCalcHours = document.getElementById('btn-calc-hours');
+    const overrideNormalDurationEl = document.getElementById('override_normal_duration');
+    const overrideHoursEl = document.getElementById('override_hours');
+
+    if (btnFetchHours) {
+        btnFetchHours.addEventListener('click', async () => {
+            const selectedOptions = Array.from(vehicleSelectEl.selectedOptions);
+            if (selectedOptions.length !== 1) {
+                alert('Please select exactly ONE vehicle to fetch its existing hours.');
+                return;
+            }
+            const imei = selectedOptions[0].value;
+            const date = refreshDateEl.value;
+            if (!date) {
+                alert('Please select a target date first.');
+                return;
+            }
+            
+            const originalText = btnFetchHours.innerText;
+            btnFetchHours.innerText = 'Fetching...';
+            btnFetchHours.disabled = true;
+            
+            try {
+                const res = await fetch('/api/fetch_existing_trips', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ imei, date })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    if (data.normal_duration) {
+                        overrideNormalDurationEl.value = data.normal_duration;
+                        const sumMin = data.normal_duration.split(',').map(parseFloat).filter(v => !isNaN(v)).reduce((a, b) => a + b, 0);
+                        overrideHoursEl.value = (sumMin / 60.0).toFixed(2);
+                        alert('Successfully fetched existing hours and durations!');
+                    } else {
+                        alert('No existing hours found in database for this date.');
+                    }
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch (e) {
+                alert('Failed to connect to backend.');
+            } finally {
+                btnFetchHours.innerText = originalText;
+                btnFetchHours.disabled = false;
+            }
+        });
+    }
+
+    if (btnCalcHours) {
+        btnCalcHours.addEventListener('click', () => {
+            const targetHoursVal = parseFloat(overrideHoursEl.value);
+            if (isNaN(targetHoursVal) || targetHoursVal <= 0) {
+                alert('Please enter a valid positive target Hours in Optional Override Hours first.');
+                return;
+            }
+            const durStr = overrideNormalDurationEl.value.trim();
+            if (!durStr) {
+                alert('Please fetch existing hours or enter some initial trip durations first.');
+                return;
+            }
+            
+            const originalDurations = durStr.split(',')
+                .map(t => parseFloat(t.trim()))
+                .filter(t => !isNaN(t));
+                
+            if (originalDurations.length === 0) {
+                alert('No valid durations found. Enter a comma-separated list of minutes.');
+                return;
+            }
+            
+            const targetMinVal = targetHoursVal * 60.0;
+            const totalOriginalSum = originalDurations.reduce((a, b) => a + b, 0);
+            const diff = targetMinVal - totalOriginalSum;
+            if (Math.abs(diff) < 0.1) {
+                alert('The durations already sum up to the target hours!');
+                return;
+            }
+            
+            const threshold = 15.0;
+            let majors = [];
+            let minors = [];
+            
+            originalDurations.forEach((val, idx) => {
+                if (val >= threshold) {
+                    majors.push({ val, idx });
+                } else {
+                    minors.push({ val, idx });
+                }
+            });
+            
+            if (majors.length === 0) {
+                majors = originalDurations.map((val, idx) => ({ val, idx }));
+                minors = [];
+            }
+            
+            const sumMinors = minors.reduce((sum, item) => sum + item.val, 0);
+            const sumMajors = majors.reduce((sum, item) => sum + item.val, 0);
+            
+            let newDurations = new Array(originalDurations.length);
+            
+            if (targetMinVal <= sumMinors) {
+                const ratio = targetMinVal / totalOriginalSum;
+                originalDurations.forEach((val, idx) => {
+                    newDurations[idx] = val * ratio;
+                });
+            } else {
+                const targetMajorSum = targetMinVal - sumMinors;
+                const ratio = targetMajorSum / sumMajors;
+                
+                minors.forEach(item => {
+                    newDurations[item.idx] = item.val;
+                });
+                
+                majors.forEach(item => {
+                    newDurations[item.idx] = item.val * ratio;
+                });
+            }
+            
+            const currentSum = newDurations.reduce((a, b) => a + b, 0);
+            const error = targetMinVal - currentSum;
+            if (Math.abs(error) > 0.001) {
+                let largestMajorIdx = majors[0].idx;
+                let maxVal = newDurations[largestMajorIdx];
+                majors.forEach(item => {
+                    if (newDurations[item.idx] > maxVal) {
+                        maxVal = newDurations[item.idx];
+                        largestMajorIdx = item.idx;
+                    }
+                });
+                newDurations[largestMajorIdx] += error;
+            }
+            
+            const finalDurations = newDurations.map(val => Math.max(0.1, parseFloat(val.toFixed(1))));
+            
+            overrideNormalDurationEl.value = finalDurations.join(',');
+            
+            alert(`Calculation Completed!\n\nTarget Total: ${targetHoursVal} Hours (${targetMinVal.toFixed(1)} Min)\nOriginal Total: ${totalOriginalSum.toFixed(1)} Min\nDifference distributed: ${diff.toFixed(1)} Min`);
         });
     }
 
