@@ -815,11 +815,17 @@ app.post('/api/refresh_cache', (req, res) => {
                     update_params.append('query', Buffer.from(update_query).toString('base64'));
                     update_params.append('type', 'update');
                     
-                    await axios.post('http://dev.igps.io/http.php', update_params.toString(), {
-                        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                        timeout: 10000
-                    });
-                    engine.log(`[REFRESH] [${imei}] Updated report row successfully.`);
+                    for (const host of ['dev.igps.io', 'igps.io']) {
+                        try {
+                            await axios.post(`http://${host}/http.php`, update_params.toString(), {
+                                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                                timeout: 10000
+                            });
+                            engine.log(`[REFRESH] [${imei}] Updated report row successfully on ${host}.`);
+                        } catch (err) {
+                            engine.log(`[REFRESH ERROR] [${imei}] Update query failed on ${host}: ${err.message}`);
+                        }
+                    }
                 }
             } else {
                 // Insert new row
@@ -871,11 +877,17 @@ app.post('/api/refresh_cache', (req, res) => {
                 insert_params.append('query', Buffer.from(insert_query).toString('base64'));
                 insert_params.append('type', 'insert');
                 
-                await axios.post('http://dev.igps.io/http.php', insert_params.toString(), {
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                    timeout: 10000
-                });
-                engine.log(`[REFRESH] [${imei}] Created new daily report row successfully.`);
+                for (const host of ['dev.igps.io', 'igps.io']) {
+                    try {
+                        await axios.post(`http://${host}/http.php`, insert_params.toString(), {
+                            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                            timeout: 10000
+                        });
+                        engine.log(`[REFRESH] [${imei}] Created new daily report row successfully on ${host}.`);
+                    } catch (err) {
+                        engine.log(`[REFRESH ERROR] [${imei}] Insert query failed on ${host}: ${err.message}`);
+                    }
+                }
             }
         } catch(err) {
             console.error(`[REFRESH ERROR] [${imei}] ${err.message}`);
