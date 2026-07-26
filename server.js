@@ -468,7 +468,7 @@ app.post('/api/refresh_cache', (req, res) => {
                                 if (current_trip_odos.length > 1) {
                                     const trip_dist = Math.max(...current_trip_odos) - Math.min(...current_trip_odos);
                                     const trip_dur = (Math.max(...current_trip_times) - Math.min(...current_trip_times)) / 1000.0;
-                                    if (trip_dist > 0.01 || trip_dur > 10) {
+                                    if (trip_dist >= 0.1 || trip_dur >= 180) {
                                         trips_km.push(parseFloat(trip_dist.toFixed(3)));
                                         trips_durations.push(Math.round(trip_dur));
                                         
@@ -500,7 +500,7 @@ app.post('/api/refresh_cache', (req, res) => {
                     if (current_trip_odos.length > 1) {
                         const trip_dist = Math.max(...current_trip_odos) - Math.min(...current_trip_odos);
                         const trip_dur = (Math.max(...current_trip_times) - Math.min(...current_trip_times)) / 1000.0;
-                        if (trip_dist > 0.01 || trip_dur > 10) {
+                        if (trip_dist >= 0.1 || trip_dur >= 180) {
                             trips_km.push(parseFloat(trip_dist.toFixed(3)));
                             trips_durations.push(Math.round(trip_dur));
                             
