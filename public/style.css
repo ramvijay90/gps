@@ -310,3 +310,27 @@ select.form-control:focus {
     background: #333;
     border-radius: 4px;
 }
+
+.config-panel, .log-panel {
+    height: 700px;
+    box-sizing: border-box;
+}
+
+.config-panel {
+    overflow-y: auto;
+}
+
+/* Custom scrollbar for config-panel */
+.config-panel::-webkit-scrollbar {
+    width: 6px;
+}
+.config-panel::-webkit-scrollbar-track {
+    background: transparent;
+}
+.config-panel::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+}
+.config-panel::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
