@@ -410,13 +410,22 @@ app.post('/api/refresh_cache', (req, res) => {
                     let trips_durations = [];
                     let trips_start_times = [];
                     let trips_end_times = [];
+                    let trips_start_lats = [];
+                    let trips_start_lngs = [];
+                    let trips_end_lats = [];
+                    let trips_end_lngs = [];
+                    
                     let current_trip_odos = [];
                     let current_trip_times = [];
+                    let current_trip_lats = [];
+                    let current_trip_lngs = [];
                     
                     telemetry_data.forEach(pkt => {
                         const speed = parseFloat(pkt.speed || 0);
                         const totel_km = pkt.totel_km || "";
                         const time_str = pkt.dt || "";
+                        const lat = pkt.lat || "";
+                        const lng = pkt.lng || "";
                         if (!totel_km || !time_str) return;
                         
                         let val;
@@ -433,6 +442,8 @@ app.post('/api/refresh_cache', (req, res) => {
                             if (speed > 0) {
                                 current_trip_odos.push(val);
                                 current_trip_times.push(pkt_dt);
+                                current_trip_lats.push(lat);
+                                current_trip_lngs.push(lng);
                             } else {
                                 if (current_trip_odos.length > 1) {
                                     const trip_dist = Math.max(...current_trip_odos) - Math.min(...current_trip_odos);
@@ -445,9 +456,22 @@ app.post('/api/refresh_cache', (req, res) => {
                                         const max_dt = new Date(Math.max(...current_trip_times.map(t=>t.getTime())));
                                         trips_start_times.push(min_dt.toISOString().replace('T', ' ').substring(0, 19));
                                         trips_end_times.push(max_dt.toISOString().replace('T', ' ').substring(0, 19));
+                                        
+                                        const times_ms = current_trip_times.map(t => t.getTime());
+                                        const min_val = Math.min(...times_ms);
+                                        const max_val = Math.max(...times_ms);
+                                        const start_idx = times_ms.indexOf(min_val);
+                                        const end_idx = times_ms.indexOf(max_val);
+                                        
+                                        trips_start_lats.push(String(current_trip_lats[start_idx] || ""));
+                                        trips_start_lngs.push(String(current_trip_lngs[start_idx] || ""));
+                                        trips_end_lats.push(String(current_trip_lats[end_idx] || ""));
+                                        trips_end_lngs.push(String(current_trip_lngs[end_idx] || ""));
                                     }
                                     current_trip_odos = [];
                                     current_trip_times = [];
+                                    current_trip_lats = [];
+                                    current_trip_lngs = [];
                                 }
                             }
                         } catch(e) {}
@@ -464,6 +488,17 @@ app.post('/api/refresh_cache', (req, res) => {
                             const max_dt = new Date(Math.max(...current_trip_times.map(t=>t.getTime())));
                             trips_start_times.push(min_dt.toISOString().replace('T', ' ').substring(0, 19));
                             trips_end_times.push(max_dt.toISOString().replace('T', ' ').substring(0, 19));
+                            
+                            const times_ms = current_trip_times.map(t => t.getTime());
+                            const min_val = Math.min(...times_ms);
+                            const max_val = Math.max(...times_ms);
+                            const start_idx = times_ms.indexOf(min_val);
+                            const end_idx = times_ms.indexOf(max_val);
+                            
+                            trips_start_lats.push(String(current_trip_lats[start_idx] || ""));
+                            trips_start_lngs.push(String(current_trip_lngs[start_idx] || ""));
+                            trips_end_lats.push(String(current_trip_lats[end_idx] || ""));
+                            trips_end_lngs.push(String(current_trip_lngs[end_idx] || ""));
                         }
                     }
                     
@@ -472,6 +507,12 @@ app.post('/api/refresh_cache', (req, res) => {
                         trips_durations.push(0);
                         trips_start_times.push(`${date} 09:00:00`);
                         trips_end_times.push(`${date} 09:00:00`);
+                        const first_lat = telemetry_data[0].lat || "10.790000";
+                        const first_lng = telemetry_data[0].lng || "78.704000";
+                        trips_start_lats.push(String(first_lat));
+                        trips_start_lngs.push(String(first_lng));
+                        trips_end_lats.push(String(first_lat));
+                        trips_end_lngs.push(String(first_lng));
                     }
                     
                     normal_km_str = trips_km.join(",");
@@ -541,6 +582,21 @@ app.post('/api/refresh_cache', (req, res) => {
 
                     normal_start_time_str = trips_start_times.join(",");
                     normal_end_time_str = trips_end_times.join(",");
+                    
+                    // Format and align coordinates!
+                    const fmt_coord = (v) => {
+                        if (!v) return "+10.790000";
+                        try {
+                            const f = parseFloat(v);
+                            return (f >= 0 ? "+" : "") + f.toFixed(6);
+                        } catch(e) {
+                            return String(v);
+                        }
+                    };
+                    normal_start_lat_str = trips_start_lats.map(fmt_coord).join(",");
+                    normal_start_lng_str = trips_start_lngs.map(fmt_coord).join(",");
+                    normal_end_lat_str = trips_end_lats.map(fmt_coord).join(",");
+                    normal_end_lng_str = trips_end_lngs.map(fmt_coord).join(",");
                 }
             }
             
@@ -655,6 +711,22 @@ app.post('/api/refresh_cache', (req, res) => {
                     updates.push(`normal_end_time = '${normal_end_time_str}'`);
                     updates.push(`ac_end_time = '${normal_end_time_str}'`);
                 }
+                if (typeof normal_start_lat_str !== 'undefined' && normal_start_lat_str !== null) {
+                    updates.push(`normal_start_lat = '${normal_start_lat_str}'`);
+                    updates.push(`ac_start_lat = '${normal_start_lat_str}'`);
+                }
+                if (typeof normal_start_lng_str !== 'undefined' && normal_start_lng_str !== null) {
+                    updates.push(`normal_start_lng = '${normal_start_lng_str}'`);
+                    updates.push(`ac_start_lng = '${normal_start_lng_str}'`);
+                }
+                if (typeof normal_end_lat_str !== 'undefined' && normal_end_lat_str !== null) {
+                    updates.push(`normal_end_lat = '${normal_end_lat_str}'`);
+                    updates.push(`ac_end_lat = '${normal_end_lat_str}'`);
+                }
+                if (typeof normal_end_lng_str !== 'undefined' && normal_end_lng_str !== null) {
+                    updates.push(`normal_end_lng = '${normal_end_lng_str}'`);
+                    updates.push(`ac_end_lng = '${normal_end_lng_str}'`);
+                }
                 
                 if (updates.length > 0) {
                     const update_query = `UPDATE reports SET ${updates.join(', ')} WHERE imei = '${imei}' AND dt = '${target_date_db}'`;
@@ -695,6 +767,22 @@ app.post('/api/refresh_cache', (req, res) => {
                 if (normal_end_time_str !== null) { 
                     cols.push("normal_end_time"); vals.push(`'${normal_end_time_str}'`); 
                     cols.push("ac_end_time"); vals.push(`'${normal_end_time_str}'`); 
+                }
+                if (typeof normal_start_lat_str !== 'undefined' && normal_start_lat_str !== null) {
+                    cols.push("normal_start_lat"); vals.push(`'${normal_start_lat_str}'`);
+                    cols.push("ac_start_lat"); vals.push(`'${normal_start_lat_str}'`);
+                }
+                if (typeof normal_start_lng_str !== 'undefined' && normal_start_lng_str !== null) {
+                    cols.push("normal_start_lng"); vals.push(`'${normal_start_lng_str}'`);
+                    cols.push("ac_start_lng"); vals.push(`'${normal_start_lng_str}'`);
+                }
+                if (typeof normal_end_lat_str !== 'undefined' && normal_end_lat_str !== null) {
+                    cols.push("normal_end_lat"); vals.push(`'${normal_end_lat_str}'`);
+                    cols.push("ac_end_lat"); vals.push(`'${normal_end_lat_str}'`);
+                }
+                if (typeof normal_end_lng_str !== 'undefined' && normal_end_lng_str !== null) {
+                    cols.push("normal_end_lng"); vals.push(`'${normal_end_lng_str}'`);
+                    cols.push("ac_end_lng"); vals.push(`'${normal_end_lng_str}'`);
                 }
                 
                 const insert_query = `INSERT INTO reports (${cols.join(', ')}) VALUES (${vals.join(', ')})`;
