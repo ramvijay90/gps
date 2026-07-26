@@ -3,6 +3,7 @@ const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
 const mqtt = require('mqtt');
+const axios = require('axios');
 const engine = require('./spoofer');
 const { runTravelReport } = require('./travel_report_spoofer');
 
@@ -300,6 +301,195 @@ app.post('/api/clear-logs', (req, res) => {
     res.json({ success: true, message: 'Telemetry logs cleared on server.' });
 });
 
+app.post('/api/refresh_cache', (req, res) => {
+    const { imeis, date, override_km, override_normal_km } = req.body;
+    if (!imeis || !date) {
+        return res.json({ success: false, message: 'IMEI list and Date are required.' });
+    }
+    
+    console.log(`[REFRESH] Starting Cache Refresh for ${imeis.length} vehicles on date ${date}...`);
+    engine.log(`[REFRESH] Starting Cache Refresh for ${imeis.length} vehicles on date: ${date}`);
+    
+    imeis.forEach(async (imei) => {
+        try {
+            engine.log(`[REFRESH] [${imei}] Syncing reports table summary...`);
+            
+            let total_km_str = null;
+            let normal_km_str = null;
+            let use_override = false;
+            
+            if (override_km !== undefined && String(override_km).trim() !== "") {
+                const val = parseFloat(override_km);
+                if (!isNaN(val)) {
+                    total_km_str = val.toFixed(3);
+                    use_override = true;
+                } else {
+                    engine.log(`[REFRESH] [${imei}] Invalid override KM format: ${override_km}`);
+                }
+            }
+            
+            if (override_normal_km !== undefined && String(override_normal_km).trim() !== "") {
+                normal_km_str = String(override_normal_km).trim();
+                use_override = true;
+            }
+            
+            if (!use_override) {
+                engine.log(`[REFRESH] [${imei}] Fetching raw history telemetry...`);
+                const from_date_str = `${date} 00:00:00`;
+                const to_date_str = `${date} 23:59:59`;
+                
+                const params = new URLSearchParams();
+                params.append('imei', imei);
+                params.append('from', from_date_str);
+                params.append('to', to_date_str);
+                params.append('username', 'trichy');
+                params.append('action', 'history_web');
+                
+                const history_res = await axios.post('http://dev.igps.io/http.php', params.toString(), {
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    timeout: 15000
+                });
+                
+                const history_data = history_res.data;
+                if (!Array.isArray(history_data) || history_data.length === 0) {
+                    engine.log(`[REFRESH] [${imei}] No raw history packets found. Skipping.`);
+                    return;
+                }
+                
+                const odos = [];
+                history_data.forEach(pkt => {
+                    const totel_km = pkt.totel_km || "";
+                    if (!totel_km) return;
+                    try {
+                        let val;
+                        if (totel_km.includes("-")) {
+                            val = parseFloat(totel_km.split("-")[0]);
+                        } else {
+                            val = parseFloat(totel_km);
+                        }
+                        if (!isNaN(val)) odos.push(val);
+                    } catch(e) {}
+                });
+                
+                if (odos.length < 2) {
+                    engine.log(`[REFRESH] [${imei}] Insufficient odometer packets to calculate run. Skipping.`);
+                    return;
+                }
+                
+                const max_odo = Math.max(...odos);
+                const min_odo = Math.min(...odos);
+                const total_km = max_odo - min_odo;
+                total_km_str = total_km.toFixed(3);
+                
+                // Split trips to build normal_km
+                const trips = [];
+                let current_trip_odos = [];
+                
+                history_data.forEach(pkt => {
+                    const speed = parseFloat(pkt.speed || 0);
+                    const totel_km = pkt.totel_km || "";
+                    if (!totel_km) return;
+                    let val;
+                    try {
+                        if (totel_km.includes("-")) {
+                            val = parseFloat(totel_km.split("-")[0]);
+                        } else {
+                            val = parseFloat(totel_km);
+                        }
+                    } catch(e) { return; }
+                    
+                    if (isNaN(val)) return;
+                    
+                    if (speed > 0) {
+                        current_trip_odos.push(val);
+                    } else {
+                        if (current_trip_odos.length > 1) {
+                            const trip_dist = Math.max(...current_trip_odos) - Math.min(...current_trip_odos);
+                            if (trip_dist > 0.01) {
+                                trips.push(parseFloat(trip_dist.toFixed(3)));
+                            }
+                            current_trip_odos = [];
+                        }
+                    }
+                });
+                
+                if (current_trip_odos.length > 1) {
+                    const trip_dist = Math.max(...current_trip_odos) - Math.min(...current_trip_odos);
+                    if (trip_dist > 0.01) {
+                        trips.push(parseFloat(trip_dist.toFixed(3)));
+                    }
+                }
+                
+                if (trips.length === 0) {
+                    trips.push(parseFloat(total_km.toFixed(3)));
+                }
+                
+                normal_km_str = trips.join(",");
+                engine.log(`[REFRESH] [${imei}] Auto-calculated Run KM: ${total_km_str}, Trips: [${normal_km_str}]`);
+            } else {
+                if (total_km_str === null) {
+                    try {
+                        const sum = normal_km_str.split(",").map(parseFloat).reduce((a, b) => a + b, 0);
+                        total_km_str = sum.toFixed(3);
+                    } catch(e) {
+                        total_km_str = "0.000";
+                    }
+                }
+                if (normal_km_str === null) {
+                    normal_km_str = total_km_str;
+                }
+                engine.log(`[REFRESH] [${imei}] Using Manual Override Run KM: ${total_km_str}, Trips: [${normal_km_str}]`);
+            }
+            
+            // Check reports table row
+            const target_date_db = `${date} 00:00:00`;
+            const check_query = `SELECT sno, km FROM reports WHERE imei = '${imei}' AND dt = '${target_date_db}'`;
+            const check_params = new URLSearchParams();
+            check_params.append('action', 'select');
+            check_params.append('query', Buffer.from(check_query).toString('base64'));
+            check_params.append('type', 'select');
+            
+            const check_res = await axios.post('http://dev.igps.io/http.php', check_params.toString(), {
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                timeout: 10000
+            });
+            
+            if (Array.isArray(check_res.data) && check_res.data.length > 0) {
+                // Update
+                const old_km = check_res.data[0].km || "0";
+                const update_query = `UPDATE reports SET km = '${total_km_str}', normal_km = '${normal_km_str}' WHERE imei = '${imei}' AND dt = '${target_date_db}'`;
+                const update_params = new URLSearchParams();
+                update_params.append('action', 'select');
+                update_params.append('query', Buffer.from(update_query).toString('base64'));
+                update_params.append('type', 'update');
+                
+                await axios.post('http://dev.igps.io/http.php', update_params.toString(), {
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    timeout: 10000
+                });
+                engine.log(`[REFRESH] [${imei}] Updated report row. Original KM: ${old_km} -> New KM: ${total_km_str}`);
+            } else {
+                // Insert
+                const insert_query = `INSERT INTO reports (imei, dt, km, normal_km, username) VALUES ('{imei}', '{target_date_db}', '{total_km_str}', '{normal_km_str}', 'trichy')`;
+                const insert_params = new URLSearchParams();
+                insert_params.append('action', 'select');
+                insert_params.append('query', Buffer.from(insert_query).toString('base64'));
+                insert_params.append('type', 'insert');
+                
+                await axios.post('http://dev.igps.io/http.php', insert_params.toString(), {
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    timeout: 10000
+                });
+                engine.log(`[REFRESH] [${imei}] Created new daily report row: ${total_km_str} KM`);
+            }
+        } catch(err) {
+            console.error(`[REFRESH ERROR] [${imei}] ${err.message}`);
+            engine.log(`[REFRESH ERROR] [${imei}] ${err.message}`);
+        }
+    });
+    
+    res.json({ success: true, message: `Cache refresh started for ${imeis.length} vehicles.` });
+});
 
 app.post('/api/run-travel-report', (req, res) => {
     const { imeis, date, hours, speed, hours_only } = req.body;

@@ -42,9 +42,20 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
     
+    // Set default dates to yesterday
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    
+    const refreshDateInput = document.getElementById('refresh_date');
+    if (refreshDateInput) refreshDateInput.value = yesterdayStr;
+    const historyDateInput = document.getElementById('history_date');
+    if (historyDateInput) historyDateInput.value = yesterdayStr;
+
     // Mode Switching Logic
     const radioCards = document.querySelectorAll('.radio-card');
     const driveSettings = document.getElementById('drive-settings');
+    const refreshSettings = document.getElementById('refresh-settings');
     let currentMode = 'parked';
 
     radioCards.forEach(card => {
@@ -58,8 +69,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (currentMode === 'drive' || currentMode === 'drive_km' || currentMode === 'travel_report' || currentMode === 'travel_hours') {
                 driveSettings.classList.remove('hidden');
+                if (refreshSettings) refreshSettings.classList.add('hidden');
+                startBtn.innerText = 'Start Spoofing';
+            } else if (currentMode === 'refresh_cache') {
+                driveSettings.classList.add('hidden');
+                if (refreshSettings) refreshSettings.classList.remove('hidden');
+                startBtn.innerText = 'Refresh Cached Report';
             } else {
                 driveSettings.classList.add('hidden');
+                if (refreshSettings) refreshSettings.classList.add('hidden');
+                startBtn.innerText = 'Start Spoofing';
             }
             
             const shieldSettings = document.getElementById('shield-settings');
@@ -369,6 +388,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 bodyData = {
                     imeis: imeis, date: historyDateStr, hours: targetHours, speed: speed,
                     hours_only: (currentMode === 'travel_hours')
+                };
+            } else if (currentMode === 'refresh_cache') {
+                const refreshDateEl = document.getElementById('refresh_date');
+                const refreshDateStr = refreshDateEl ? refreshDateEl.value : "";
+                const overrideKm = document.getElementById('override_km').value;
+                const overrideNormalKm = document.getElementById('override_normal_km').value;
+                
+                if (!refreshDateStr) {
+                    alert("Please select a target date to refresh.");
+                    return;
+                }
+                
+                apiUrl = '/api/refresh_cache';
+                bodyData = {
+                    imeis: imeis,
+                    date: refreshDateStr,
+                    override_km: overrideKm,
+                    override_normal_km: overrideNormalKm
                 };
             }
 

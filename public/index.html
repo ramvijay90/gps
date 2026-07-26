@@ -307,6 +307,27 @@
                                     <span class="title">⏱️ Auto Travel (Hours)</span>
                                     <span class="desc">Spoof Hours in report with 0 KM.</span>
                                 </label>
+                                <label class="radio-card" id="mode-refresh-label">
+                                    <input type="radio" name="mode" value="refresh_cache">
+                                    <span class="title">🔄 Cache Refresh</span>
+                                    <span class="desc">Force report table to recalculate and refresh instantly.</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div id="refresh-settings" class="hidden">
+                            <div class="form-group">
+                                <label for="refresh_date">Target Date to Sync/Refresh Report</label>
+                                <input type="date" id="refresh_date" class="form-control">
+                                <small style="color: var(--text-secondary); font-size: 0.75rem;">Select the day (e.g. yesterday) you want to update on the government report page.</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="override_km">Optional Override KM</label>
+                                <input type="number" id="override_km" step="0.001" placeholder="Leave empty to auto-calculate from database telemetry">
+                            </div>
+                            <div class="form-group">
+                                <label for="override_normal_km">Optional Override Trips (Comma-separated KM)</label>
+                                <input type="text" id="override_normal_km" placeholder="e.g. 10.5,15.2,5.5 (Leave empty to auto-calculate)">
                             </div>
                         </div>
 
