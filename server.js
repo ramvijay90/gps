@@ -420,8 +420,24 @@ app.post('/api/refresh_cache', (req, res) => {
                     let current_trip_lats = [];
                     let current_trip_lngs = [];
                     
+                    let isHoursVehicle = false;
+                    try {
+                        const fs = require('fs');
+                        const path = require('path');
+                        const vehicles = JSON.parse(fs.readFileSync(path.join(__dirname, 'vehicles.json'), 'utf8'));
+                        const vConfig = vehicles.find(v => v.imei === imei);
+                        if (vConfig) {
+                            const v_type = vConfig.type || "";
+                            const v_cat = vConfig.category || "";
+                            if (['Jcb/Hitachi', 'Desludging', 'Hyundai', 'Mini desilting', 'Sand Sweeper'].includes(v_type) || v_cat === 'SEWAGE') {
+                                isHoursVehicle = true;
+                            }
+                        }
+                    } catch(e) {}
+
                     telemetry_data.forEach(pkt => {
                         const speed = parseFloat(pkt.speed || 0);
+                        const i_status = String(pkt.i_status || "0");
                         const totel_km = pkt.totel_km || "";
                         const time_str = pkt.dt || "";
                         const lat = pkt.lat || "";
@@ -439,7 +455,8 @@ app.post('/api/refresh_cache', (req, res) => {
                             
                             if (isNaN(val) || isNaN(pkt_dt.getTime())) return;
                             
-                            if (speed > 0) {
+                            const isWorking = speed > 0 || (isHoursVehicle && i_status === "1");
+                            if (isWorking) {
                                 current_trip_odos.push(val);
                                 current_trip_times.push(pkt_dt);
                                 current_trip_lats.push(lat);
@@ -556,24 +573,60 @@ app.post('/api/refresh_cache', (req, res) => {
                     if (trips_durations.length === trips_start_times.length) {
                         const new_starts = [];
                         const new_ends = [];
-                        for (let idx = 0; idx < trips_durations.length; idx++) {
-                            try {
-                                const orig_start = new Date(trips_start_times[idx].replace(" ", "T") + "Z");
-                                let n_start;
+                        
+                        if (use_override_hours) {
+                            const N = trips_durations.length;
+                            const D = trips_durations.reduce((a, b) => a + b, 0);
+                            
+                            const start_local = new Date(`${date}T09:00:00Z`);
+                            const start_utc = new Date(start_local.getTime() - 5.5 * 3600000);
+                            
+                            const total_span = 31500; // 8 hours 45 minutes
+                            let break_sec = 0;
+                            if (N > 1) {
+                                const total_breaks = Math.max(60 * (N - 1), total_span - D);
+                                break_sec = total_breaks / (N - 1);
+                            }
+                            
+                            let last_end_ms = start_utc.getTime();
+                            
+                            for (let idx = 0; idx < N; idx++) {
+                                let n_start_ms;
                                 if (idx === 0) {
-                                    n_start = orig_start;
+                                    n_start_ms = start_utc.getTime();
                                 } else {
-                                    const orig_end_prev = new Date(trips_end_times[idx-1].replace(" ", "T") + "Z");
-                                    const orig_break_ms = orig_start.getTime() - orig_end_prev.getTime();
-                                    const break_ms = Math.max(60000, orig_break_ms); // minimum 1 minute break
-                                    n_start = new Date(new Date(new_ends[idx-1]).getTime() + break_ms);
+                                    n_start_ms = last_end_ms + break_sec * 1000;
                                 }
-                                const n_end = new Date(n_start.getTime() + trips_durations[idx] * 1000);
+                                const n_end_ms = n_start_ms + trips_durations[idx] * 1000;
+                                
+                                const n_start = new Date(n_start_ms);
+                                const n_end = new Date(n_end_ms);
+                                
                                 new_starts.push(n_start.toISOString().replace("T", " ").substring(0, 19));
                                 new_ends.push(n_end.toISOString().replace("T", " ").substring(0, 19));
-                            } catch(e) {
-                                new_starts.push(trips_start_times[idx]);
-                                new_ends.push(trips_end_times[idx]);
+                                
+                                last_end_ms = n_end_ms;
+                            }
+                        } else {
+                            for (let idx = 0; idx < trips_durations.length; idx++) {
+                                try {
+                                    const orig_start = new Date(trips_start_times[idx].replace(" ", "T") + "Z");
+                                    let n_start;
+                                    if (idx === 0) {
+                                        n_start = orig_start;
+                                    } else {
+                                        const orig_end_prev = new Date(trips_end_times[idx-1].replace(" ", "T") + "Z");
+                                        const orig_break_ms = orig_start.getTime() - orig_end_prev.getTime();
+                                        const break_ms = Math.max(60000, orig_break_ms); // minimum 1 minute break
+                                        n_start = new Date(new Date(new_ends[idx-1]).getTime() + break_ms);
+                                    }
+                                    const n_end = new Date(n_start.getTime() + trips_durations[idx] * 1000);
+                                    new_starts.push(n_start.toISOString().replace("T", " ").substring(0, 19));
+                                    new_ends.push(n_end.toISOString().replace("T", " ").substring(0, 19));
+                                } catch(e) {
+                                    new_starts.push(trips_start_times[idx]);
+                                    new_ends.push(trips_end_times[idx]);
+                                }
                             }
                         }
                         trips_start_times = new_starts;
