@@ -542,7 +542,6 @@ app.post('/api/refresh_cache', (req, res) => {
                     normal_start_time_str = trips_start_times.join(",");
                     normal_end_time_str = trips_end_times.join(",");
                 }
-                }
             }
             
             // Auto calculate Hours if not overridden
