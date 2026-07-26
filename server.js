@@ -407,7 +407,7 @@ app.post('/api/refresh_cache', (req, res) => {
                     total_km_str = total_km.toFixed(3);
                     
                     const trips_km = [];
-                    const trips_durations = [];
+                    let trips_durations = [];
                     const trips_start_times = [];
                     const trips_end_times = [];
                     let current_trip_odos = [];
