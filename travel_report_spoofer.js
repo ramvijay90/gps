@@ -295,6 +295,70 @@ async function runTravelReport(imei, date_str, target_hours = 1.5, speed = 30, l
                 
                 logCallback(`[+] Successfully overwritten packets!`);
                 
+                // Retrieve and update the cached summary in the MySQL 'reports' table if it exists (for yesterday/past dates)
+                try {
+                    logCallback(`[+] Syncing MySQL 'reports' table summary for date ${date_str}...`);
+                    const target_date_db = `${date_str} 00:00:00`;
+                    
+                    // 1. Fetch current reports row
+                    const check_query = `SELECT sno, km, normal_km FROM reports WHERE imei = '${imei}' AND dt = '${target_date_db}'`;
+                    const check_params = new URLSearchParams();
+                    check_params.append('action', 'select');
+                    check_params.append('query', Buffer.from(check_query).toString('base64'));
+                    check_params.append('type', 'select');
+                    
+                    const check_res = await axios.post('http://dev.igps.io/http.php', check_params.toString(), {
+                        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                        timeout: 10000
+                    });
+                    
+                    if (Array.isArray(check_res.data) && check_res.data.length > 0) {
+                        const report_row = check_res.data[0];
+                        const current_km = parseFloat(report_row.km || '0');
+                        const new_km = (current_km + target_added_val).toFixed(3);
+                        
+                        let new_normal_km = report_row.normal_km || '';
+                        if (new_normal_km) {
+                            // Update the longest trip in the normal_km list
+                            let km_parts = new_normal_km.split(',').map(parseFloat);
+                            if (km_parts.length > 0) {
+                                // Find the index of the max value
+                                let max_idx = 0;
+                                let max_val = km_parts[0];
+                                for (let k = 1; k < km_parts.length; k++) {
+                                    if (km_parts[k] > max_val) {
+                                        max_val = km_parts[k];
+                                        max_idx = k;
+                                    }
+                                }
+                                // Add target_added_val to the longest trip
+                                km_parts[max_idx] = parseFloat((max_val + target_added_val).toFixed(3));
+                                new_normal_km = km_parts.join(',');
+                            }
+                        }
+                        
+                        logCallback(`[+] Found existing report summary row. Original KM: ${current_km} -> New KM: ${new_km}`);
+                        
+                        // 2. Perform UPDATE query
+                        const update_query = `UPDATE reports SET km = '${new_km}', normal_km = '${new_normal_km}' WHERE imei = '${imei}' AND dt = '${target_date_db}'`;
+                        const update_params = new URLSearchParams();
+                        update_params.append('action', 'select'); // Use 'select' action to trigger the SQL executor
+                        update_params.append('query', Buffer.from(update_query).toString('base64'));
+                        update_params.append('type', 'update');
+                        
+                        await axios.post('http://dev.igps.io/http.php', update_params.toString(), {
+                            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                            timeout: 10000
+                        });
+                        
+                        logCallback(`[+] Successfully updated cached MySQL report summary.`);
+                    } else {
+                        logCallback(`[+] No cached report summary row found in MySQL 'reports' table for this date. (It will be generated naturally on schedule).`);
+                    }
+                } catch (e) {
+                    logCallback(`[-] Failed to sync MySQL reports summary: ${e.message}`);
+                }
+                
                 setTimeout(() => {
                     client.end();
                     resolve();
