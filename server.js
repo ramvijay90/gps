@@ -531,12 +531,37 @@ app.post('/api/refresh_cache', (req, res) => {
                         const first_lng = telemetry_data[0].lng || "78.704000";
                         trips_start_lats.push(String(first_lat));
                         trips_start_lngs.push(String(first_lng));
-                        trips_end_lats.push(String(first_lat));
-                        trips_end_lngs.push(String(first_lng));
                     }
                     
-                    normal_km_str = trips_km.join(",");
-                    engine.log(`[REFRESH] [${imei}] Auto-calculated Run KM: ${total_km_str}, Trips: [${normal_km_str}]`);
+                    if (!use_override_km) {
+                        normal_km_str = trips_km.join(",");
+                        engine.log(`[REFRESH] [${imei}] Auto-calculated Run KM: ${total_km_str}, Trips: [${normal_km_str}]`);
+                    } else {
+                        const target_km = parseFloat(override_km);
+                        const raw_sum = trips_km.reduce((a, b) => a + b, 0);
+                        if (raw_sum > 0) {
+                            const ratio = target_km / raw_sum;
+                            let scaled = trips_km.map(k => parseFloat((k * ratio).toFixed(3)));
+                            let current_sum = scaled.reduce((a, b) => a + b, 0);
+                            let diff = parseFloat((target_km - current_sum).toFixed(3));
+                            if (Math.abs(diff) > 0.0001 && scaled.length > 0) {
+                                let max_idx = scaled.indexOf(Math.max(...scaled));
+                                scaled[max_idx] = parseFloat((scaled[max_idx] + diff).toFixed(3));
+                            }
+                            trips_km = scaled;
+                        } else {
+                            const count = trips_km.length;
+                            if (count > 0) {
+                                const each_val = parseFloat((target_km / count).toFixed(3));
+                                trips_km = new Array(count).fill(each_val);
+                            } else {
+                                trips_km = [target_km];
+                            }
+                        }
+                        total_km_str = (trips_km.reduce((a, b) => a + b, 0)).toFixed(3);
+                        normal_km_str = trips_km.join(",");
+                        engine.log(`[REFRESH] [${imei}] Scaled raw KMs to match override KM ${override_km}: [${normal_km_str}]`);
+                    }
                     
                     if (!use_override_hours) {
                         const sum_seconds = trips_durations.reduce((a, b) => a + b, 0);
