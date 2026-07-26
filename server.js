@@ -429,7 +429,10 @@ app.post('/api/refresh_cache', (req, res) => {
                         if (vConfig) {
                             const v_type = vConfig.type || "";
                             const v_cat = vConfig.category || "";
-                            if (['Jcb/Hitachi', 'Desludging', 'Hyundai', 'Mini desilting', 'Sand Sweeper'].includes(v_type) || v_cat === 'SEWAGE') {
+                            const v_no = (vConfig.vehicle_no || "").toUpperCase();
+                            const is_hours_type = ['JCB/HITACHI', 'DESLUDGING', 'HYUNDAI', 'MINI DESILTING', 'SAND SWEEPER'].includes(v_type.toUpperCase()) || v_cat.toUpperCase() === 'SEWAGE';
+                            const is_hours_name = v_no.includes('RIG') || v_no.includes('HITACHI') || v_no.includes('JCB') || v_no.includes('DESILTING') || v_no.includes('DESLUDGING') || v_no.includes('SWEEPER') || v_no.includes('HYUNDAI') || v_no.includes('RODDER');
+                            if (is_hours_type || is_hours_name) {
                                 isHoursVehicle = true;
                             }
                         }
