@@ -1000,5 +1000,155 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnExpHrsExcel) btnExpHrsExcel.addEventListener('click', (e) => { e.preventDefault(); exportToExcel('hours'); });
     if (btnExpHrsPdf) btnExpHrsPdf.addEventListener('click', (e) => { e.preventDefault(); exportToPDF('hours'); });
 
+    // Fetch and Auto-Calculate button event listeners
+    const btnFetchTrips = document.getElementById('btn-fetch-trips');
+    const btnCalcTrips = document.getElementById('btn-calc-trips');
+    const overrideNormalKmEl = document.getElementById('override_normal_km');
+    const overrideKmEl = document.getElementById('override_km');
+    const refreshDateEl = document.getElementById('refresh_date');
+    const vehicleSelectEl = document.getElementById('vehicle-select');
+
+    if (btnFetchTrips) {
+        btnFetchTrips.addEventListener('click', async () => {
+            const selectedOptions = Array.from(vehicleSelectEl.selectedOptions);
+            if (selectedOptions.length !== 1) {
+                alert('Please select exactly ONE vehicle to fetch its existing trips.');
+                return;
+            }
+            const imei = selectedOptions[0].value;
+            const date = refreshDateEl.value;
+            if (!date) {
+                alert('Please select a target date first.');
+                return;
+            }
+            
+            const originalText = btnFetchTrips.innerText;
+            btnFetchTrips.innerText = 'Fetching...';
+            btnFetchTrips.disabled = true;
+            
+            try {
+                const res = await fetch('/api/fetch_existing_trips', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ imei, date })
+                });
+                const data = await res.json();
+                if (data.success && data.normal_km) {
+                    overrideNormalKmEl.value = data.normal_km;
+                    alert('Successfully fetched existing trips!');
+                } else {
+                    alert('No existing trips found in database for this date. (You can still run spoofer first, or leave blank to auto-calculate from raw data)');
+                }
+            } catch (e) {
+                alert('Failed to connect to backend.');
+            } finally {
+                btnFetchTrips.innerText = originalText;
+                btnFetchTrips.disabled = false;
+            }
+        });
+    }
+
+    if (btnCalcTrips) {
+        btnCalcTrips.addEventListener('click', () => {
+            const targetKmVal = parseFloat(overrideKmEl.value);
+            if (isNaN(targetKmVal) || targetKmVal <= 0) {
+                alert('Please enter a valid positive target KM in Optional Override KM first.');
+                return;
+            }
+            const tripsStr = overrideNormalKmEl.value.trim();
+            if (!tripsStr) {
+                alert('Please fetch existing trips or enter some initial trip distances first.');
+                return;
+            }
+            
+            // Parse existing trips
+            const originalTrips = tripsStr.split(',')
+                .map(t => parseFloat(t.trim()))
+                .filter(t => !isNaN(t));
+                
+            if (originalTrips.length === 0) {
+                alert('No valid trip distances found. Enter a comma-separated list of numbers.');
+                return;
+            }
+            
+            const totalOriginalSum = originalTrips.reduce((a, b) => a + b, 0);
+            const diff = targetKmVal - totalOriginalSum;
+            if (Math.abs(diff) < 0.001) {
+                alert('The trips already sum up to the target KM!');
+                return;
+            }
+            
+            // Step 2: Differentiate majors (>= 1.0 KM) vs minors (< 1.0 KM)
+            const threshold = 1.0;
+            let majors = [];
+            let minors = [];
+            
+            originalTrips.forEach((val, idx) => {
+                if (val >= threshold) {
+                    majors.push({ val, idx });
+                } else {
+                    minors.push({ val, idx });
+                }
+            });
+            
+            // If no major trips exist, treat all trips as major
+            if (majors.length === 0) {
+                majors = originalTrips.map((val, idx) => ({ val, idx }));
+                minors = [];
+            }
+            
+            const sumMinors = minors.reduce((sum, item) => sum + item.val, 0);
+            const sumMajors = majors.reduce((sum, item) => sum + item.val, 0);
+            
+            let newTrips = new Array(originalTrips.length);
+            
+            if (targetKmVal <= sumMinors) {
+                // If the target is smaller than the sum of minors, we must scale everything uniformly
+                const ratio = targetKmVal / totalOriginalSum;
+                originalTrips.forEach((val, idx) => {
+                    newTrips[idx] = val * ratio;
+                });
+            } else {
+                // Scale only the major trips proportionally
+                const targetMajorSum = targetKmVal - sumMinors;
+                const ratio = targetMajorSum / sumMajors;
+                
+                // Copy minors unchanged
+                minors.forEach(item => {
+                    newTrips[item.idx] = item.val;
+                });
+                
+                // Scale majors
+                majors.forEach(item => {
+                    newTrips[item.idx] = item.val * ratio;
+                });
+            }
+            
+            // Absorb any floating point rounding error in the last major trip
+            const currentSum = newTrips.reduce((a, b) => a + b, 0);
+            const error = targetKmVal - currentSum;
+            if (Math.abs(error) > 0.0001) {
+                // Find the index of the largest major trip to absorb the error
+                let largestMajorIdx = majors[0].idx;
+                let maxVal = newTrips[largestMajorIdx];
+                majors.forEach(item => {
+                    if (newTrips[item.idx] > maxVal) {
+                        maxVal = newTrips[item.idx];
+                        largestMajorIdx = item.idx;
+                    }
+                });
+                newTrips[largestMajorIdx] += error;
+            }
+            
+            // Round to 3 decimal places
+            const finalTrips = newTrips.map(val => Math.max(0.001, parseFloat(val.toFixed(3))));
+            
+            overrideNormalKmEl.value = finalTrips.join(',');
+            
+            // Display visual log summary
+            alert(`Calculation Completed!\n\nTarget Total: ${targetKmVal} KM\nOriginal Total: ${totalOriginalSum.toFixed(3)} KM\nDifference distributed: ${diff.toFixed(3)} KM`);
+        });
+    }
+
     pollStatus();
 });

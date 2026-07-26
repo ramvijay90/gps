@@ -491,6 +491,119 @@ app.post('/api/refresh_cache', (req, res) => {
     res.json({ success: true, message: `Cache refresh started for ${imeis.length} vehicles.` });
 });
 
+app.post('/api/fetch_existing_trips', async (req, res) => {
+    const { imei, date } = req.body;
+    if (!imei || !date) {
+        return res.json({ success: false, message: 'IMEI and Date are required.' });
+    }
+    
+    try {
+        const target_date_db = `${date} 00:00:00`;
+        const check_query = `SELECT normal_km FROM reports WHERE imei = '${imei}' AND dt = '${target_date_db}'`;
+        const check_params = new URLSearchParams();
+        check_params.append('action', 'select');
+        check_params.append('query', Buffer.from(check_query).toString('base64'));
+        check_params.append('type', 'select');
+        
+        const check_res = await axios.post('http://dev.igps.io/http.php', check_params.toString(), {
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            timeout: 10000
+        });
+        
+        if (Array.isArray(check_res.data) && check_res.data.length > 0) {
+            const normal_km = check_res.data[0].normal_km || "";
+            if (normal_km) {
+                return res.json({ success: true, normal_km: normal_km });
+            }
+        }
+        
+        // Fallback to history calculations
+        const from_date_str = `${date} 00:00:00`;
+        const to_date_str = `${date} 23:59:59`;
+        
+        const params = new URLSearchParams();
+        params.append('imei', imei);
+        params.append('from', from_date_str);
+        params.append('to', to_date_str);
+        params.append('username', 'trichy');
+        params.append('action', 'history_web');
+        
+        const history_res = await axios.post('http://dev.igps.io/http.php', params.toString(), {
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            timeout: 15000
+        });
+        
+        const history_data = history_res.data;
+        if (Array.isArray(history_data) && history_data.length > 0) {
+            const odos = [];
+            history_data.forEach(pkt => {
+                const totel_km = pkt.totel_km || "";
+                if (!totel_km) return;
+                try {
+                    let val;
+                    if (totel_km.includes("-")) {
+                        val = parseFloat(totel_km.split("-")[0]);
+                    } else {
+                        val = parseFloat(totel_km);
+                    }
+                    if (!isNaN(val)) odos.push(val);
+                } catch(e) {}
+            });
+            
+            if (odos.length >= 2) {
+                const total_km = Math.max(...odos) - Math.min(...odos);
+                const trips = [];
+                let current_trip_odos = [];
+                
+                history_data.forEach(pkt => {
+                    const speed = parseFloat(pkt.speed || 0);
+                    const totel_km = pkt.totel_km || "";
+                    if (!totel_km) return;
+                    let val;
+                    try {
+                        if (totel_km.includes("-")) {
+                            val = parseFloat(totel_km.split("-")[0]);
+                        } else {
+                            val = parseFloat(totel_km);
+                        }
+                    } catch(e) { return; }
+                    
+                    if (isNaN(val)) return;
+                    
+                    if (speed > 0) {
+                        current_trip_odos.push(val);
+                    } else {
+                        if (current_trip_odos.length > 1) {
+                            const trip_dist = Math.max(...current_trip_odos) - Math.min(...current_trip_odos);
+                            if (trip_dist > 0.01) {
+                                trips.push(parseFloat(trip_dist.toFixed(3)));
+                            }
+                            current_trip_odos = [];
+                        }
+                    }
+                });
+                
+                if (current_trip_odos.length > 1) {
+                    const trip_dist = Math.max(...current_trip_odos) - Math.min(...current_trip_odos);
+                    if (trip_dist > 0.01) {
+                        trips.push(parseFloat(trip_dist.toFixed(3)));
+                    }
+                }
+                
+                if (trips.length === 0) {
+                    trips.push(parseFloat(total_km.toFixed(3)));
+                }
+                
+                return res.json({ success: true, normal_km: trips.join(",") });
+            }
+        }
+    } catch(err) {
+        console.error(err);
+    }
+    
+    return res.json({ success: false, message: 'Could not fetch any trip data.' });
+});
+
 app.post('/api/run-travel-report', (req, res) => {
     const { imeis, date, hours, speed, hours_only } = req.body;
     if (!imeis || !date) {
