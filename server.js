@@ -358,7 +358,8 @@ app.post('/api/refresh_cache', (req, res) => {
             }
             
             let telemetry_data = [];
-            if (!use_override_km || !use_override_hours) {
+            // 1. Fetch raw telemetry
+            if (true) {
                 engine.log(`[REFRESH] [${imei}] Fetching raw history telemetry...`);
                 const from_date_str = `${date} 00:00:00`;
                 const to_date_str = `${date} 23:59:59`;
@@ -370,23 +371,24 @@ app.post('/api/refresh_cache', (req, res) => {
                 params.append('username', 'trichy');
                 params.append('action', 'history_web');
                 
-                const history_res = await axios.post('http://dev.igps.io/http.php', params.toString(), {
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                    timeout: 15000
-                });
-                
-                if (Array.isArray(history_res.data) && history_res.data.length > 0) {
-                    telemetry_data = history_res.data;
-                } else {
-                    engine.log(`[REFRESH] [${imei}] No raw history packets found. Telemetry calculation skipped.`);
-                    if (!use_override_km && !use_override_hours) {
-                        return;
+                try {
+                    const history_res = await axios.post('http://dev.igps.io/http.php', params.toString(), {
+                        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                        timeout: 15000
+                    });
+                    
+                    if (Array.isArray(history_res.data) && history_res.data.length > 0) {
+                        telemetry_data = history_res.data;
+                    } else {
+                        engine.log(`[REFRESH] [${imei}] No raw history packets found. Telemetry calculation skipped.`);
                     }
+                } catch (e) {
+                    engine.log(`[REFRESH ERROR] [${imei}] Failed to fetch history: ${e.message}`);
                 }
             }
             
-            // Auto calculate KM
-            if (!use_override_km && telemetry_data.length > 0) {
+            // Calculate KM
+            if (telemetry_data.length > 0) {
                 const odos = [];
                 telemetry_data.forEach(pkt => {
                     const totel_km = pkt.totel_km || "";
@@ -527,21 +529,61 @@ app.post('/api/refresh_cache', (req, res) => {
                         trips_durations.push(0);
                         trips_start_times.push(`${date} 09:00:00`);
                         trips_end_times.push(`${date} 09:00:00`);
-                        const first_lat = telemetry_data[0].lat || "10.790000";
-                        const first_lng = telemetry_data[0].lng || "78.704000";
+                        const first_lat = telemetry_data[0] ? (telemetry_data[0].lat || "10.790000") : "10.790000";
+                        const first_lng = telemetry_data[0] ? (telemetry_data[0].lng || "78.704000") : "78.704000";
                         trips_start_lats.push(String(first_lat));
                         trips_start_lngs.push(String(first_lng));
+                        trips_end_lats.push(String(first_lat));
+                        trips_end_lngs.push(String(first_lng));
                     }
                     
-                    if (!use_override_km) {
-                        normal_km_str = trips_km.join(",");
-                        engine.log(`[REFRESH] [${imei}] Auto-calculated Run KM: ${total_km_str}, Trips: [${normal_km_str}]`);
-                    } else {
-                        const target_km = parseFloat(override_km);
-                        const raw_sum = trips_km.reduce((a, b) => a + b, 0);
+                    // 1. Override durations if override_normal_duration is provided
+                    if (override_durations && override_durations.length > 0) {
+                        trips_durations = override_durations;
+                        run_time_str = String(trips_durations.reduce((a, b) => a + b, 0));
+                        normal_duration_str = trips_durations.join(",");
+                        engine.log(`[REFRESH] [${imei}] Using explicit override durations: [${normal_duration_str}]`);
+                    }
+                    // 2. Scale durations if use_override_hours is true (but override_normal_duration is NOT provided)
+                    else if (use_override_hours) {
+                        const target_sec = Math.round(parseFloat(override_hours) * 3600);
+                        const raw_sum = trips_durations.reduce((a, b) => a + b, 0);
                         if (raw_sum > 0) {
-                            const ratio = target_km / raw_sum;
-                            let scaled = trips_km.map(k => parseFloat((k * ratio).toFixed(3)));
+                            const ratio = target_sec / raw_sum;
+                            let scaled = trips_durations.map(d => Math.round(d * ratio));
+                            let current_sum = scaled.reduce((a, b) => a + b, 0);
+                            let diff = target_sec - current_sum;
+                            if (diff !== 0 && scaled.length > 0) {
+                                let max_idx = scaled.indexOf(Math.max(...scaled));
+                                scaled[max_idx] += diff;
+                            }
+                            trips_durations = scaled;
+                        } else {
+                            const count = trips_durations.length;
+                            if (count > 0) {
+                                const each_val = Math.round(target_sec / count);
+                                trips_durations = new Array(count).fill(each_val);
+                            } else {
+                                trips_durations = [target_sec];
+                            }
+                        }
+                        run_time_str = String(trips_durations.reduce((a, b) => a + b, 0));
+                        normal_duration_str = trips_durations.join(",");
+                        engine.log(`[REFRESH] [${imei}] Auto-scaled raw durations to match override hours ${override_hours}: [${normal_duration_str}]`);
+                    } else {
+                        const sum_seconds = trips_durations.reduce((a, b) => a + b, 0);
+                        run_time_str = String(sum_seconds);
+                        normal_duration_str = trips_durations.join(",");
+                        engine.log(`[REFRESH] [${imei}] Auto-calculated Run Time: ${(sum_seconds/3600.0).toFixed(2)} Hrs, Durations: [${normal_duration_str}]`);
+                    }
+
+                    // 3. Scale or distribute KM
+                    if (use_override_km) {
+                        const target_km = parseFloat(override_km);
+                        const total_dur = trips_durations.reduce((a, b) => a + b, 0);
+                        if (total_dur > 0 && trips_durations.length > 0) {
+                            // Distribute/scale KM proportionally to trips_durations!
+                            let scaled = trips_durations.map(d => parseFloat(((d / total_dur) * target_km).toFixed(3)));
                             let current_sum = scaled.reduce((a, b) => a + b, 0);
                             let diff = parseFloat((target_km - current_sum).toFixed(3));
                             if (Math.abs(diff) > 0.0001 && scaled.length > 0) {
@@ -550,7 +592,7 @@ app.post('/api/refresh_cache', (req, res) => {
                             }
                             trips_km = scaled;
                         } else {
-                            const count = trips_km.length;
+                            const count = trips_durations.length;
                             if (count > 0) {
                                 const each_val = parseFloat((target_km / count).toFixed(3));
                                 trips_km = new Array(count).fill(each_val);
@@ -561,41 +603,32 @@ app.post('/api/refresh_cache', (req, res) => {
                         total_km_str = (trips_km.reduce((a, b) => a + b, 0)).toFixed(3);
                         normal_km_str = trips_km.join(",");
                         engine.log(`[REFRESH] [${imei}] Scaled raw KMs to match override KM ${override_km}: [${normal_km_str}]`);
-                    }
-                    
-                    if (!use_override_hours) {
-                        const sum_seconds = trips_durations.reduce((a, b) => a + b, 0);
-                        run_time_str = String(sum_seconds);
-                        normal_duration_str = trips_durations.join(",");
-                        engine.log(`[REFRESH] [${imei}] Auto-calculated Run Time: ${(sum_seconds/3600.0).toFixed(2)} Hrs, Durations: [${trips_durations.map(d => (d/60.0).toFixed(1)).join(",")}] Min`);
                     } else {
-                        if (normal_duration_str === null || normal_duration_str === undefined || normal_duration_str.trim() === "") {
-                            const target_sec = Math.round(parseFloat(override_hours) * 3600);
-                            const raw_sum = trips_durations.reduce((a, b) => a + b, 0);
-                            if (raw_sum > 0) {
-                                const ratio = target_sec / raw_sum;
-                                let scaled = trips_durations.map(d => Math.round(d * ratio));
-                                let current_sum = scaled.reduce((a, b) => a + b, 0);
-                                let diff = target_sec - current_sum;
-                                if (diff !== 0 && scaled.length > 0) {
-                                    let max_idx = scaled.indexOf(Math.max(...scaled));
-                                    scaled[max_idx] += diff;
-                                }
-                                trips_durations = scaled;
-                            } else {
-                                const count = trips_durations.length;
-                                if (count > 0) {
-                                    const each_val = Math.round(target_sec / count);
-                                    trips_durations = new Array(count).fill(each_val);
-                                } else {
-                                    trips_durations = [target_sec];
-                                }
-                            }
-                            run_time_str = String(trips_durations.reduce((a, b) => a + b, 0));
-                            normal_duration_str = trips_durations.join(",");
-                            engine.log(`[REFRESH] [${imei}] Auto-scaled raw durations to match override hours ${override_hours}: [${trips_durations.map(d => (d/60.0).toFixed(1)).join(",")}] Min`);
-                        }
+                        const sum_km = trips_km.reduce((a, b) => a + b, 0);
+                        total_km_str = sum_km.toFixed(3);
+                        normal_km_str = trips_km.join(",");
+                        engine.log(`[REFRESH] [${imei}] Auto-calculated Run KM: ${total_km_str}, Trips: [${normal_km_str}]`);
                     }
+
+                    // 4. Align starts, ends, and coordinates arrays to match trips_durations (length N)
+                    const N = trips_durations.length;
+                    const align_list = (lst, default_val) => {
+                        if (lst.length >= N) {
+                            return lst.slice(0, N);
+                        } else {
+                            return lst.concat(new Array(N - lst.length).fill(default_val));
+                        }
+                    };
+                    
+                    const first_lat = telemetry_data[0] ? (telemetry_data[0].lat || "10.790000") : "10.790000";
+                    const first_lng = telemetry_data[0] ? (telemetry_data[0].lng || "78.704000") : "78.704000";
+                    
+                    trips_start_times = align_list(trips_start_times, `${date} 09:00:00`);
+                    trips_end_times = align_list(trips_end_times, `${date} 09:00:00`);
+                    trips_start_lats = align_list(trips_start_lats, String(first_lat));
+                    trips_start_lngs = align_list(trips_start_lngs, String(first_lng));
+                    trips_end_lats = align_list(trips_end_lats, String(first_lat));
+                    trips_end_lngs = align_list(trips_end_lngs, String(first_lng));
 
                     // Now align start and end times to prevent overlaps and match durations!
                     if (trips_durations.length === trips_start_times.length) {
