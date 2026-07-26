@@ -475,8 +475,6 @@ app.post('/api/refresh_cache', (req, res) => {
                     }
                     
                     normal_km_str = trips_km.join(",");
-                    normal_start_time_str = trips_start_times.join(",");
-                    normal_end_time_str = trips_end_times.join(",");
                     engine.log(`[REFRESH] [${imei}] Auto-calculated Run KM: ${total_km_str}, Trips: [${normal_km_str}]`);
                     
                     if (!use_override_hours) {
@@ -512,6 +510,38 @@ app.post('/api/refresh_cache', (req, res) => {
                             engine.log(`[REFRESH] [${imei}] Auto-scaled raw durations to match override hours ${override_hours}: [${trips_durations.map(d => (d/60.0).toFixed(1)).join(",")}] Min`);
                         }
                     }
+
+                    // Now align start and end times to prevent overlaps and match durations!
+                    if (trips_durations.length === trips_start_times.length) {
+                        const new_starts = [];
+                        const new_ends = [];
+                        for (let idx = 0; idx < trips_durations.length; idx++) {
+                            try {
+                                const orig_start = new Date(trips_start_times[idx].replace(" ", "T") + "Z");
+                                let n_start;
+                                if (idx === 0) {
+                                    n_start = orig_start;
+                                } else {
+                                    const orig_end_prev = new Date(trips_end_times[idx-1].replace(" ", "T") + "Z");
+                                    const orig_break_ms = orig_start.getTime() - orig_end_prev.getTime();
+                                    const break_ms = Math.max(60000, orig_break_ms); // minimum 1 minute break
+                                    n_start = new Date(new Date(new_ends[idx-1]).getTime() + break_ms);
+                                }
+                                const n_end = new Date(n_start.getTime() + trips_durations[idx] * 1000);
+                                new_starts.push(n_start.toISOString().replace("T", " ").substring(0, 19));
+                                new_ends.push(n_end.toISOString().replace("T", " ").substring(0, 19));
+                            } catch(e) {
+                                new_starts.push(trips_start_times[idx]);
+                                new_ends.push(trips_end_times[idx]);
+                            }
+                        }
+                        trips_start_times = new_starts;
+                        trips_end_times = new_ends;
+                    }
+
+                    normal_start_time_str = trips_start_times.join(",");
+                    normal_end_time_str = trips_end_times.join(",");
+                }
                 }
             }
             
