@@ -346,12 +346,13 @@ app.post('/api/refresh_cache', (req, res) => {
                     engine.log(`[REFRESH] [${imei}] Invalid override Hours format: ${override_hours}`);
                 }
             }
+            let override_durations = null;
             if (override_normal_duration !== undefined && String(override_normal_duration).trim() !== "") {
                 try {
                     const parts = override_normal_duration.split(",");
-                    const sec_parts = parts.map(p => String(Math.floor(parseFloat(p.trim()) * 60)));
+                    override_durations = parts.map(p => Math.floor(parseFloat(p.trim()) * 60));
+                    const sec_parts = override_durations.map(p => String(p));
                     normal_duration_str = sec_parts.join(",");
-                    use_override_hours = true;
                 } catch(e) {
                     engine.log(`[REFRESH] [${imei}] Invalid override Trip Durations format: ${override_normal_duration}`);
                 }
