@@ -49,8 +49,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const refreshDateInput = document.getElementById('refresh_date');
     if (refreshDateInput) refreshDateInput.value = yesterdayStr;
-    const historyDateInput = document.getElementById('history_date');
-    if (historyDateInput) historyDateInput.value = yesterdayStr;
 
     // Mode Switching Logic
     const radioCards = document.querySelectorAll('.radio-card');
