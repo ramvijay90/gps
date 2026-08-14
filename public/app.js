@@ -1,4 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
+    const histDateEl = document.getElementById('history_date');
+    if(histDateEl) histDateEl.value = "";
     const startBtn = document.getElementById('start-btn');
     const stopBtn = document.getElementById('stop-btn');
     const statusBadge = document.getElementById('system-status');

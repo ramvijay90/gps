@@ -383,7 +383,7 @@ class SpooferEngine {
                         const current_time = new Date(start_date.getTime() + (i * 5000));
                         const time_str = this.formatDateStr(current_time);
                         
-                        const odo_str = `${total_odo.toFixed(6)}-${today_odo.toFixed(6)}`;
+                        const odo_str = `${total_odo.toFixed(6)}-${total_odo.toFixed(6)}`;
                         
                         let lat = config.lat;
                         let lng = config.lng;
@@ -419,7 +419,7 @@ class SpooferEngine {
                     // Send final Ignition OFF packet exactly 1 second after the last driving packet
                     const final_time = new Date(start_date.getTime() + (broadcasts_per_day * 5000) + 1000);
                     const final_time_str = this.formatDateStr(final_time);
-                    const final_odo_str = `${total_odo.toFixed(6)}-${today_odo.toFixed(6)}`;
+                    const final_odo_str = `${total_odo.toFixed(6)}-${total_odo.toFixed(6)}`;
                     
                     let final_lat = config.lat;
                     let final_lng = config.lng;
@@ -484,7 +484,9 @@ class SpooferEngine {
                     let last_payload = "";
                     let curr_lat = config.lat;
                     let curr_lng = config.lng;
-                    let toggle_position = false;
+                    let initial_lat = config.lat;
+                    let initial_lng = config.lng;
+                    let current_heading = 0;
                     
                     const end_date = new Date(start_date.getTime() + (broadcasts_per_day * 5000));
                     this.log(`[${imei}] Fetching real historical track to avoid zigzags...`);
@@ -501,11 +503,8 @@ class SpooferEngine {
                         total_odo += dist_km;
                         today_odo += dist_km;
                         
-                        let base_lat = config.lat;
-                        let base_lng = config.lng;
-                        
-                        if (historical_track && historical_track.length > 0) {
-                            // Find closest record in historical_track
+                        if (historical_track && historical_track.length > 0 && i === 0) {
+                            // Only on the first tick, if we have historical data, start the circle there
                             let closest = historical_track[0];
                             let min_diff = Math.abs(new Date(closest.dt.replace(' ', 'T') + 'Z') - current_time);
                             
@@ -516,25 +515,25 @@ class SpooferEngine {
                                     closest = historical_track[j];
                                 }
                             }
-                            
-                            // Only use it if the time difference is reasonable (within 15 minutes)
                             if (min_diff < 900000) {
-                                base_lat = closest.lat;
-                                base_lng = closest.lng;
+                                curr_lat = closest.lat;
+                                curr_lng = closest.lng;
+                                initial_lat = closest.lat;
+                                initial_lng = closest.lng;
                             }
                         }
                         
-                        if (toggle_position) {
-                            const next_pos = this._calculate_next_position(base_lat, base_lng, distance_m_per_tick, 0);
-                            curr_lat = next_pos.lat;
-                            curr_lng = next_pos.lng;
-                        } else {
-                            curr_lat = base_lat;
-                            curr_lng = base_lng;
-                        }
-                        toggle_position = !toggle_position;
+                        // Neighborhood Drive Logic: Continuously move forward, changing heading by 24 degrees to form a large circle
+                        // Micro-Movement Logic: Slowly crawl ~15 meters over the entire drive.
+                        // This moves continuously in one direction so the government filter accepts it,
+                        // but stays small enough to look completely parked (invisible) on the maps.
+                        const fraction = broadcasts_per_day > 1 ? (i / (broadcasts_per_day - 1)) : 0;
+                        const lat_offset = 0.0001; // ~11 meters North
+                        const lng_offset = 0.0001; // ~11 meters East
+                        curr_lat = initial_lat + (lat_offset * fraction);
+                        curr_lng = initial_lng + (lng_offset * fraction);
                         
-                        const odo_str = `${total_odo.toFixed(6)}-${today_odo.toFixed(6)}`;
+                        const odo_str = `${total_odo.toFixed(6)}-${total_odo.toFixed(6)}`;
                         const coord_str = `+${parseFloat(curr_lat).toFixed(6)},+${parseFloat(curr_lng).toFixed(6)}`;
                         
                         last_payload = `##,${imei},0,${time_str},${coord_str},0,${v_voltage.toFixed(1)},0,0,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,0-0-0-0,2000-00-00 00:00:00,2000-00-00 00:00:00,${v_voltage.toFixed(0)},3950,0,1-0-0-0-0,0,0,0-0,0,0,2782,0,0-26,3950,0,0,0,0,00000-00,$`;
@@ -542,6 +541,20 @@ class SpooferEngine {
                         await new Promise(r => setTimeout(r, 5));
                     }
                     
+                    // Construct and publish a final "locking" packet at exactly 11:59:59 PM IST (18:29:59 UTC)
+                    // containing the final odometer. This guarantees that the final packet of the day
+                    // in the database has the spoofed odometer, preventing real tracker overrides.
+                    const lock_date = new Date(start_date.getTime() + (broadcasts_per_day * 5000));
+                    lock_date.setUTCHours(18, 29, 59, 0); // 18:29:59 UTC (11:59:59 PM IST)
+                    const lock_time_str = this.formatDateStr(lock_date);
+                    
+                    const lock_odo_str = `${total_odo.toFixed(6)}-${total_odo.toFixed(6)}`;
+                    const lock_coord_str = `+${parseFloat(curr_lat).toFixed(6)},+${parseFloat(curr_lng).toFixed(6)}`;
+                    const lock_payload = `##,${imei},0,${lock_time_str},${lock_coord_str},0,${v_voltage.toFixed(1)},0,0,91.26,${lock_odo_str},0-0,0-0,0-0,+0.0,0,0-0-0-0,2000-00-00 00:00:00,2000-00-00 00:00:00,${v_voltage.toFixed(0)},3950,0,1-0-0-0-0,0,0,0-0,0,0,2782,0,0-26,3950,0,0,0,0,00000-00,$`;
+                    
+                    client.publish(topic, lock_payload);
+                    await new Promise(r => setTimeout(r, 20));
+
                     this.log(`[${imei}] Finished Ghost Drive.`);
                     this.save_history(imei, "drive_km", total_odo - initial_odo, initial_odo, total_odo, config.target_hours, config.shield_hours || 0, config.history_date);
                     
@@ -552,7 +565,7 @@ class SpooferEngine {
                         const shield_loops = Math.floor((config.shield_hours * 3600) / 3);
                         let loops_done = 0;
                         
-                        const shield_odo_str = `${total_odo.toFixed(6)}-${today_odo.toFixed(6)}`;
+                        const shield_odo_str = `${total_odo.toFixed(6)}-${total_odo.toFixed(6)}`;
                         
                         // We use setInterval for the shield so it runs asynchronously
                         shield_interval_id = setInterval(() => {
