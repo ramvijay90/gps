@@ -1,19 +1,15 @@
 {
-  "name": "hostinger_deployment",
+  "name": "gps_backend",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
-    "start": "node index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "dependencies": {
-    "axios": "^1.17.0",
-    "cors": "^2.8.6",
-    "express": "^5.2.1",
-    "mqtt": "^5.15.1"
+    "axios": "^1.7.2",
+    "cors": "^2.8.5",
+    "express": "^4.21.1",
+    "mqtt": "^4.3.8"
   }
 }
