@@ -60,19 +60,44 @@ class SpooferEngine {
             const istTime = new Date(Date.now() + (330 * 60000));
             const recordDate = history_date ? history_date : istTime.toISOString().split('T')[0];
             
+            const timestamp = istTime.toISOString().replace('T', ' ').substring(0, 19);
+            const addedKmNum = parseFloat(parseFloat(added_km).toFixed(2)) || 0.0;
+            const startOdoNum = parseFloat(parseFloat(start_odo).toFixed(2)) || 0.0;
+            const finalOdoNum = parseFloat(parseFloat(final_odo).toFixed(2)) || 0.0;
+            const targetHrsNum = parseFloat(target_hours) || 0.0;
+            const shieldHrsNum = parseFloat(shield_hours) || 0.0;
+            
             history.unshift({
-                timestamp: istTime.toISOString().replace('T', ' ').substring(0, 19),
+                timestamp,
                 date: recordDate,
                 imei,
                 mode,
-                added_km: parseFloat(parseFloat(added_km).toFixed(2)),
-                start_odo: parseFloat(parseFloat(start_odo).toFixed(2)),
-                final_odo: parseFloat(parseFloat(final_odo).toFixed(2)),
-                target_hours: parseFloat(target_hours),
-                shield_hours: parseFloat(shield_hours)
+                added_km: addedKmNum,
+                start_odo: startOdoNum,
+                final_odo: finalOdoNum,
+                target_hours: targetHrsNum,
+                shield_hours: shieldHrsNum
             });
             if (history.length > 1000) history = history.slice(0, 1000); // keep last 1000
             fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 4));
+            
+            // Asynchronously save history record to remote MySQL database
+            const insertSql = `INSERT INTO \`gps_history_log\` (timestamp, date, imei, mode, added_km, start_odo, final_odo, target_hours, shield_hours) VALUES ('${timestamp}', '${recordDate}', '${imei}', '${mode}', ${addedKmNum}, ${startOdoNum}, ${finalOdoNum}, ${targetHrsNum}, ${shieldHrsNum})`;
+            const sqlB64 = Buffer.from(insertSql).toString('base64');
+            const params = new URLSearchParams();
+            params.append('action', 'select');
+            params.append('query', sqlB64);
+            params.append('type', 'select');
+            
+            axios.post('http://dev.igps.io/http.php', params.toString(), {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                },
+                timeout: 5000
+            }).catch(err => {
+                console.error("[-] Failed to save history to MySQL database:", err.message);
+            });
         } catch (e) {
             console.error("Failed to save history", e);
         }

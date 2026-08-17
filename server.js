@@ -36,73 +36,146 @@ const SLEEP_CONFIGS_FILE = path.join(DATA_DIR, 'sleep_configs.json');
     } catch(e) {}
 });
 
-// Seed missing May 1-3, 2026 spoofing records for vehicle 9713 (IMEI 869925071606287) if history is empty
-try {
-    const targetImei = '869925071606287';
-    let history = [];
-    if (fs.existsSync(HISTORY_FILE)) {
-        try {
-            history = JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8') || '[]');
-        } catch(e) {}
-    }
-    
-    const hasMay1 = history.some(h => h.imei === targetImei && h.date === '2026-05-01');
-    const hasMay2 = history.some(h => h.imei === targetImei && h.date === '2026-05-02');
-    const hasMay3 = history.some(h => h.imei === targetImei && h.date === '2026-05-03');
-    
-    let changed = false;
-    if (!hasMay1) {
-        history.push({
-            timestamp: "2026-05-01 12:56:46",
-            date: "2026-05-01",
-            imei: targetImei,
-            vehicle_no: "TN 45 CB 9713",
-            mode: "travel_report",
-            added_km: 3.3,
-            start_odo: 2552.82,
-            final_odo: 2556.12,
-            target_hours: 0,
-            shield_hours: 0
+async function insertHistoryIntoDatabase(record) {
+    try {
+        const insertSql = `INSERT INTO \`gps_history_log\` (timestamp, date, imei, mode, added_km, start_odo, final_odo, target_hours, shield_hours) VALUES ('${record.timestamp}', '${record.date}', '${record.imei}', '${record.mode}', ${record.added_km || 0}, ${record.start_odo || 0}, ${record.final_odo || 0}, ${record.target_hours || 0}, ${record.shield_hours || 0})`;
+        const sqlB64 = Buffer.from(insertSql).toString('base64');
+        const params = new URLSearchParams();
+        params.append('action', 'select');
+        params.append('query', sqlB64);
+        params.append('type', 'select');
+        
+        await axios.post('http://dev.igps.io/http.php', params.toString(), {
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'User-Agent': 'Mozilla/5.0'
+            },
+            timeout: 5000
         });
-        changed = true;
+    } catch (e) {
+        console.error("[-] Failed to insert history record into database:", e.message);
     }
-    if (!hasMay2) {
-        history.push({
-            timestamp: "2026-05-02 17:56:53",
-            date: "2026-05-02",
-            imei: targetImei,
-            vehicle_no: "TN 45 CB 9713",
-            mode: "travel_report",
-            added_km: 3.3,
-            start_odo: 2556.12,
-            final_odo: 2559.42,
-            target_hours: 0,
-            shield_hours: 0
+}
+
+async function initHistoryFromDatabase() {
+    try {
+        let localHistory = [];
+        if (fs.existsSync(HISTORY_FILE)) {
+            try {
+                localHistory = JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8') || '[]');
+            } catch(e) {}
+        }
+        if (!Array.isArray(localHistory)) localHistory = [];
+
+        console.log("[INIT] Fetching history from MySQL database...");
+        const sql = "SELECT * FROM `gps_history_log` ORDER BY sno DESC LIMIT 1000";
+        const sqlB64 = Buffer.from(sql).toString('base64');
+        const params = new URLSearchParams();
+        params.append('action', 'select');
+        params.append('query', sqlB64);
+        params.append('type', 'select');
+        
+        const res = await axios.post('http://dev.igps.io/http.php', params.toString(), {
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'User-Agent': 'Mozilla/5.0'
+            },
+            timeout: 10000
         });
-        changed = true;
+        
+        let dbHistory = [];
+        const rows = res.data;
+        if (Array.isArray(rows)) {
+            dbHistory = rows.map(r => ({
+                timestamp: r.timestamp,
+                date: r.date,
+                imei: r.imei,
+                mode: r.mode,
+                added_km: parseFloat(r.added_km || 0),
+                start_odo: parseFloat(r.start_odo || 0),
+                final_odo: parseFloat(r.final_odo || 0),
+                target_hours: parseFloat(r.target_hours || 0),
+                shield_hours: parseFloat(r.shield_hours || 0)
+            }));
+        }
+        
+        const dbKeys = new Set(dbHistory.map(h => `${h.imei}_${h.timestamp}`));
+        let migratedCount = 0;
+        for (const localRec of localHistory) {
+            const key = `${localRec.imei}_${localRec.timestamp}`;
+            if (localRec.imei && localRec.timestamp && !dbKeys.has(key)) {
+                await insertHistoryIntoDatabase(localRec);
+                dbHistory.push(localRec);
+                dbKeys.add(key);
+                migratedCount++;
+            }
+        }
+        if (migratedCount > 0) {
+            console.log(`[INIT] Migrated ${migratedCount} local history records to remote MySQL database.`);
+        }
+        
+        const targetImei = '869925071606287';
+        const hasMay1 = dbHistory.some(h => h.imei === targetImei && h.date === '2026-05-01');
+        const hasMay2 = dbHistory.some(h => h.imei === targetImei && h.date === '2026-05-02');
+        const hasMay3 = dbHistory.some(h => h.imei === targetImei && h.date === '2026-05-03');
+        
+        if (!hasMay3) {
+            const record = {
+                timestamp: "2026-05-03 10:00:00",
+                date: "2026-05-03",
+                imei: targetImei,
+                mode: "travel_report",
+                added_km: 3.3,
+                start_odo: 2559.42,
+                final_odo: 2562.72,
+                target_hours: 0,
+                shield_hours: 0
+            };
+            dbHistory.push(record);
+            await insertHistoryIntoDatabase(record);
+        }
+        if (!hasMay2) {
+            const record = {
+                timestamp: "2026-05-02 17:56:53",
+                date: "2026-05-02",
+                imei: targetImei,
+                mode: "travel_report",
+                added_km: 3.3,
+                start_odo: 2556.12,
+                final_odo: 2559.42,
+                target_hours: 0,
+                shield_hours: 0
+            };
+            dbHistory.push(record);
+            await insertHistoryIntoDatabase(record);
+        }
+        if (!hasMay1) {
+            const record = {
+                timestamp: "2026-05-01 12:56:46",
+                date: "2026-05-01",
+                imei: targetImei,
+                mode: "travel_report",
+                added_km: 3.3,
+                start_odo: 2552.82,
+                final_odo: 2556.12,
+                target_hours: 0,
+                shield_hours: 0
+            };
+            dbHistory.push(record);
+            await insertHistoryIntoDatabase(record);
+        }
+        
+        dbHistory.sort((a, b) => new Date(b.timestamp.replace(' ', 'T')).getTime() - new Date(a.timestamp.replace(' ', 'T')).getTime());
+        
+        const dir = path.dirname(HISTORY_FILE);
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+        fs.writeFileSync(HISTORY_FILE, JSON.stringify(dbHistory, null, 4));
+        console.log(`[INIT] Successfully loaded and synced ${dbHistory.length} history records from MySQL database.`);
+    } catch (err) {
+        console.error("[INIT] Failed to initialize history from database:", err.message);
     }
-    if (!hasMay3) {
-        history.push({
-            timestamp: "2026-05-03 10:00:00",
-            date: "2026-05-03",
-            imei: targetImei,
-            vehicle_no: "TN 45 CB 9713",
-            mode: "travel_report",
-            added_km: 3.3,
-            start_odo: 2559.42,
-            final_odo: 2562.72,
-            target_hours: 0,
-            shield_hours: 0
-        });
-        changed = true;
-    }
-    
-    if (changed) {
-        console.log("Auto-seeding May 1-3 spoofing records for vehicle 9713...");
-        fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 4));
-    }
-} catch (err) {
-    console.error("Failed to seed May history records:", err.message);
 }
 
 app.use(cors());
@@ -287,11 +360,29 @@ app.get('/api/history', (req, res) => {
     }
 });
 
-app.delete('/api/history', (req, res) => {
+app.delete('/api/history', async (req, res) => {
     try {
         fs.writeFileSync(HISTORY_FILE, JSON.stringify([]));
+        
+        // Truncate remote MySQL history table
+        const sql = "TRUNCATE TABLE `gps_history_log`";
+        const sqlB64 = Buffer.from(sql).toString('base64');
+        const params = new URLSearchParams();
+        params.append('action', 'select');
+        params.append('query', sqlB64);
+        params.append('type', 'select');
+        
+        await axios.post('http://dev.igps.io/http.php', params.toString(), {
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            },
+            timeout: 5000
+        });
+        
         res.json({ success: true, message: 'History cleared.' });
     } catch (e) {
+        console.error("[-] Failed to clear MySQL history table:", e.message);
         res.json({ success: false, message: 'Failed to clear history.' });
     }
 });
@@ -1338,4 +1429,7 @@ app.post('/api/set-sleep-state', (req, res) => {
 
 app.listen(port, () => {
     console.log(`Node.js Admin Dashboard running at http://localhost:${port}`);
+    
+    // Asynchronously fetch history from database and sync to history.json
+    initHistoryFromDatabase();
 });
