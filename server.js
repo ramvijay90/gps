@@ -8,7 +8,7 @@ const engine = require('./spoofer');
 const { runTravelReport } = require('./travel_report_spoofer');
 
 const app = express();
-const port = 5001;
+const port = process.env.PORT || 5001;
 const DATA_DIR = path.join(__dirname, '..', 'data_storage');
 if (!fs.existsSync(DATA_DIR)) {
     try {

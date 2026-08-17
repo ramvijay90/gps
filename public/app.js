@@ -795,7 +795,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         let val = 0.0;
                         if (type === 'km') {
                             dayLogs.forEach(log => {
-                                if (log.mode === 'travel_report' || log.mode === 'drive_km' || log.mode === 'drive') {
+                                if (log.mode === 'drive_km') {
                                     val += parseFloat(log.added_km || 0);
                                 }
                             });
@@ -803,7 +803,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             dailyVals.push(val);
                         } else {
                             dayLogs.forEach(log => {
-                                if (log.mode === 'travel_hours' || log.mode === 'drive' || log.mode === 'drive_km') {
+                                if (log.mode === 'drive') {
                                     val += parseFloat(log.target_hours || 0);
                                 }
                             });

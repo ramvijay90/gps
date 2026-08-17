@@ -1,5 +1,17 @@
 [
     {
+        "vehicle_no": "890 HITACHI",
+        "imei": "862942074961020",
+        "sim": "",
+        "model": "",
+        "type": "Jcb/Hitachi",
+        "voltage": 25.0,
+        "sleep_mode": false,
+        "category": "SEWAGE",
+        "zone": "Zone Main",
+        "ward": "-"
+    },
+    {
         "vehicle_no": "HITACHI 120 RIG",
         "imei": "862942074968108",
         "sim": "5754182054552",
