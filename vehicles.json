@@ -113,7 +113,7 @@
     },
     {
         "vehicle_no": "TN 45 BJ 8669 RIG",
-        "imei": "862942074960972",
+        "imei": "862942074968116",
         "sim": "5754181966389",
         "model": "",
         "type": "Desludging",
@@ -1298,6 +1298,18 @@
     {
         "vehicle_no": "TN 45 CC 1627 RIG NEW",
         "imei": "869867035051582",
+        "sim": "5754180685891",
+        "model": "",
+        "type": "Jet rodder",
+        "voltage": 25.8,
+        "sleep_mode": false,
+        "category": "SEWAGE",
+        "zone": "Zone Main",
+        "ward": "-"
+    },
+    {
+        "vehicle_no": "TN 45 BA 7435 RIG",
+        "imei": "862942074963158",
         "sim": "5754180685891",
         "model": "",
         "type": "Jet rodder",
