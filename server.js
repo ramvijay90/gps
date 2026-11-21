@@ -282,7 +282,8 @@ app.post('/api/start', (req, res) => {
         parseFloat(data.start_odo || 0),
         parseFloat(data.speed || 0),
         parseFloat(data.start_today_odo || 0),
-        parseFloat(data.shield_hours || 0)
+        parseFloat(data.shield_hours || 0),
+        data.target_trip || 'auto'
     );
     
     res.json({ success: success, message: success ? "Spoofer started successfully." : "Spoofer is already running." });

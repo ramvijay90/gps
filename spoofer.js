@@ -219,7 +219,7 @@ class SpooferEngine {
         return [];
     }
     
-    start(imeis, lat, lng, mode, history_date, target_hours, start_odo, speed, start_today_odo = 0.0, shield_hours = 0.0) {
+    start(imeis, lat, lng, mode, history_date, target_hours, start_odo, speed, start_today_odo = 0.0, shield_hours = 0.0, target_trip = 'auto') {
         const config = {
             lat: parseFloat(lat),
             lng: parseFloat(lng),
@@ -229,7 +229,8 @@ class SpooferEngine {
             start_odo: parseFloat(start_odo),
             start_today_odo: parseFloat(start_today_odo),
             speed: parseFloat(speed),
-            shield_hours: parseFloat(shield_hours)
+            shield_hours: parseFloat(shield_hours),
+            target_trip: target_trip
         };
         
         if (config.mode === "parked") config.speed = 0;
@@ -481,14 +482,22 @@ class SpooferEngine {
                         }
                     }
 
-                    // 4. Select target trip (prefer Trip 5, 4, or 3)
+                    // 4. Select target trip (honor user selection or default to Trip 5, 4, or 3)
                     let target_trip_idx = -1;
-                    if (trips.length >= 5) {
-                        target_trip_idx = 4; // Trip 5
-                    } else if (trips.length >= 3) {
-                        target_trip_idx = trips.length >= 4 ? 3 : 2; // Trip 4 or Trip 3
-                    } else if (trips.length > 0) {
-                        target_trip_idx = trips.length - 1; // Last trip
+                    if (config.target_trip && config.target_trip !== 'auto') {
+                        const chosen = parseInt(config.target_trip);
+                        if (!isNaN(chosen) && chosen >= 1 && chosen <= trips.length) {
+                            target_trip_idx = chosen - 1;
+                        }
+                    }
+                    if (target_trip_idx === -1) {
+                        if (trips.length >= 5) {
+                            target_trip_idx = 4; // Default to Trip 5
+                        } else if (trips.length >= 3) {
+                            target_trip_idx = trips.length >= 4 ? 3 : 2; // Trip 4 or Trip 3
+                        } else if (trips.length > 0) {
+                            target_trip_idx = trips.length - 1; // Last trip
+                        }
                     }
 
                     if (target_trip_idx >= 0) {

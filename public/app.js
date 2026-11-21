@@ -375,12 +375,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
+            const targetTripEl = document.getElementById('target_trip');
+            const targetTrip = targetTripEl ? targetTripEl.value : 'auto';
+
             let apiUrl = '/api/start';
             let bodyData = {
                 imeis: imeis, lat, lng, mode: currentMode,
                 history_date: historyDateStr, target_hours: targetHours, 
                 start_odo: startOdo, start_today_odo: startTodayOdo, speed: speed,
-                shield_hours: shieldHours
+                shield_hours: shieldHours,
+                target_trip: targetTrip
             };
             
             if (currentMode === 'travel_report' || currentMode === 'travel_hours') {
