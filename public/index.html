@@ -371,14 +371,15 @@
                             <div class="form-group">
                                 <label for="target_trip">Attach Idle Hours to Trip</label>
                                 <select id="target_trip" class="form-control" style="width: 100%; background: #1e293b; color: #fff; border: 1px solid #334155; padding: 0.5rem; border-radius: 6px;">
-                                    <option value="auto">Auto (Default: Trip 5)</option>
-                                    <option value="3">Trip 3</option>
-                                    <option value="4">Trip 4</option>
+                                    <option value="last">Last Trip (Shift End - Safest, No Overlap)</option>
+                                    <option value="auto">Auto (Finds Longest Halt Window)</option>
                                     <option value="5">Trip 5</option>
-                                    <option value="1">Trip 1</option>
+                                    <option value="4">Trip 4</option>
+                                    <option value="3">Trip 3</option>
                                     <option value="2">Trip 2</option>
+                                    <option value="1">Trip 1</option>
                                 </select>
-                                <small style="color: var(--text-secondary); font-size: 0.75rem;">Select whether to attach idle hours to Trip 3, 4, or 5 (defaults to Trip 5).</small>
+                                <small style="color: var(--text-secondary); font-size: 0.75rem;">Attaching to Last Trip (Shift End) is recommended for large hours (e.g. 2–6h) to prevent overlapping daytime trips.</small>
                             </div>
                             <div class="form-group">
                                 <label>Starting Odometer (Total KM) <span style="font-size: 0.8em; color: #ffeb3b;">*REQUIRED FOR KM VEHICLES*</span></label>

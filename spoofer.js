@@ -482,21 +482,35 @@ class SpooferEngine {
                         }
                     }
 
-                    // 4. Select target trip (honor user selection or default to Trip 5, 4, or 3)
+                    // 4. Select target trip (honor user selection or auto pick safest trip)
                     let target_trip_idx = -1;
                     if (config.target_trip && config.target_trip !== 'auto') {
-                        const chosen = parseInt(config.target_trip);
-                        if (!isNaN(chosen) && chosen >= 1 && chosen <= trips.length) {
-                            target_trip_idx = chosen - 1;
+                        if (config.target_trip === 'last') {
+                            target_trip_idx = trips.length - 1;
+                        } else {
+                            const chosen = parseInt(config.target_trip);
+                            if (!isNaN(chosen) && chosen >= 1 && chosen <= trips.length) {
+                                target_trip_idx = chosen - 1;
+                            }
                         }
                     }
                     if (target_trip_idx === -1) {
-                        if (trips.length >= 5) {
-                            target_trip_idx = 4; // Default to Trip 5
-                        } else if (trips.length >= 3) {
-                            target_trip_idx = trips.length >= 4 ? 3 : 2; // Trip 4 or Trip 3
-                        } else if (trips.length > 0) {
-                            target_trip_idx = trips.length - 1; // Last trip
+                        // Smart Auto: Find a trip with a halt gap large enough, or default to the Last Trip (Safest)
+                        for (let t = trips.length - 1; t >= 0; t--) {
+                            if (t === trips.length - 1) {
+                                target_trip_idx = t; // Last trip is always safe (night parking)
+                                break;
+                            }
+                            const t_curr_end = new Date(trips[t].end_time_utc.replace(' ', 'T') + 'Z').getTime();
+                            const t_next_start = new Date(trips[t + 1].start_time_utc.replace(' ', 'T') + 'Z').getTime();
+                            const gap_sec = (t_next_start - t_curr_end) / 1000;
+                            if (gap_sec >= inject_seconds) {
+                                target_trip_idx = t;
+                                break;
+                            }
+                        }
+                        if (target_trip_idx === -1 && trips.length > 0) {
+                            target_trip_idx = trips.length - 1;
                         }
                     }
 
@@ -509,8 +523,8 @@ class SpooferEngine {
 
                         this.log(`[${imei}] Extending Trip ${target_trip_idx + 1} from ${win_start_utc} to ${win_end_utc} (+${config.target_hours} hrs)...`);
 
-                        // A. Update halt packets in {imei} during idle window
-                        const updateSql = `UPDATE \`${imei}\` SET i_status = '1', jcb_ac = '1-1-1-1', speed = 0, totel_km = '${odo_str}' WHERE dt >= '${win_start_utc}' AND dt <= '${win_end_utc}'`;
+                        // A. Update only halt packets in {imei} during idle window (protect real moving trips!)
+                        const updateSql = `UPDATE \`${imei}\` SET i_status = '1', jcb_ac = '1-0-0-0', totel_km = '${odo_str}' WHERE dt >= '${win_start_utc}' AND dt <= '${win_end_utc}' AND speed = 0`;
                         await this.executeDual(updateSql, "update");
 
                         // B. Continuous heartbeats every 60s to ensure smooth playback & jar runtime
@@ -523,7 +537,7 @@ class SpooferEngine {
                             const pkt_date = new Date(t_end.getTime() + (h * 60000));
                             const dt_str = this.formatDateStr(pkt_date);
                             const dt_s_str = this.formatDateStrIST(pkt_date);
-                            heartbeatRows.push(`('${dt_str}', '${dt_s_str}', '${lat_val}', '${lng_val}', '0', '1', '${odo_str}', '1-1-1-1', 2782)`);
+                            heartbeatRows.push(`('${dt_str}', '${dt_s_str}', '${lat_val}', '${lng_val}', '0', '1', '${odo_str}', '1-0-0-0', 2782)`);
                         }
 
                         if (heartbeatRows.length > 0) {
