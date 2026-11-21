@@ -21,6 +21,33 @@ class SpooferEngine {
         return this.active_drives > 0 || Object.keys(this.active_shields_list).length > 0;
     }
     
+    async runQuery(host, sql, type = "select") {
+        try {
+            const sqlB64 = Buffer.from(sql).toString('base64');
+            const params = new URLSearchParams();
+            params.append('action', 'select');
+            params.append('query', sqlB64);
+            params.append('type', type);
+
+            const res = await axios.post(`http://${host}/http.php`, params.toString(), {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'User-Agent': 'Mozilla/5.0'
+                },
+                timeout: 20000
+            });
+            return res.data;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    async executeDual(sql, type = "update") {
+        const hosts = ['dev.igps.io', 'igps.io'];
+        const promises = hosts.map(h => this.runQuery(h, sql, type));
+        return Promise.allSettled(promises);
+    }
+    
     log(message) {
         // Shift time by 5 hours 30 minutes for IST
         const istTime = new Date(Date.now() + (330 * 60000));
@@ -137,15 +164,18 @@ class SpooferEngine {
                 const totel_km = last_record.totel_km || "";
                 
                 let odo = 0.0, today_odo = 0.0;
+                let is_dual = false;
                 if (totel_km.includes("-")) {
+                    is_dual = true;
                     const parts = totel_km.split("-");
-                    odo = parseFloat(parts[0]);
-                    today_odo = parseFloat(parts[1]);
+                    odo = parseFloat(parts[0]) || 0.0;
+                    today_odo = parseFloat(parts[1]) || 0.0;
                 } else if (totel_km) {
-                    odo = parseFloat(totel_km);
+                    odo = parseFloat(totel_km) || 0.0;
+                    today_odo = odo;
                 }
                 
-                return { success: true, lat, lng, odo, today_odo };
+                return { success: true, lat, lng, odo, today_odo, is_dual, totel_km };
             }
             return { success: false, error: "No historical data found" };
         } catch (error) {
@@ -356,110 +386,216 @@ class SpooferEngine {
                 const topic = `BB/${imei}`;
                 
                 if (config.mode === "drive") {
-                    let start_date;
-                    if (config.history_date) {
-                        try {
-                            const d = new Date(config.history_date);
-                            d.setUTCHours(18, 29, 50, 0); // 18:29:50 UTC
-                            start_date = d;
-                        } catch(e) { start_date = new Date(); }
-                    } else if (this.is_scheduled) {
-                        start_date = new Date();
-                        start_date.setUTCHours(18, 29, 50, 0);
-                    } else {
-                        start_date = new Date();
+                    let target_date_str = config.history_date;
+                    if (!target_date_str) {
+                        target_date_str = this.formatDateStrIST(new Date()).split(' ')[0];
                     }
                     
-                    start_date = new Date(start_date.getTime() - (config.target_hours * 3600000));
-                    const broadcasts_per_day = Math.floor((config.target_hours * 3600) / 5);
+                    const inject_seconds = Math.round(config.target_hours * 3600);
+                    this.log(`[${imei}] Starting Ghost Drive Hours (+${config.target_hours} hrs) for date ${target_date_str}...`);
+
+                    // 1. Fetch packets for the date from dev.igps.io
+                    const pkts = await this.runQuery('dev.igps.io', `SELECT sno, dt, dt_s, lat, lng, speed, i_status, totel_km, jcb_ac FROM \`${imei}\` WHERE dt_s LIKE '${target_date_str}%' ORDER BY sno ASC`) || [];
                     
-                    const speed_ms = 0;
-                    const distance_m_per_tick = 0;
-                    
-                    this.log(`[${imei}] Injecting ${config.target_hours} hrs of Engine Hours ending at: ${this.formatDateStr(start_date)}...`);
-                    
-                    let total_odo = config.start_odo || 0.0;
-                    let today_odo = config.start_today_odo || 0.0;
-                    
-                    if (total_odo === 0.0 || !config.lat || !config.lng) {
+                    // 2. Dual Odometer preservation: extract exactly and NEVER overwrite today's odometer (odo_1) with odo_0!
+                    let raw_totel_km = "";
+                    if (pkts.length > 0) {
+                        raw_totel_km = pkts[pkts.length - 1].totel_km || "";
+                    } else {
                         const fetch_result = await this.fetch_live_data_instant(imei, config.history_date);
                         if (fetch_result.success) {
-                            if (total_odo === 0.0) {
-                                total_odo = fetch_result.odo || 0.0;
-                                today_odo = fetch_result.today_odo || 0.0;
-                            }
-                            if (!config.lat || !config.lng) {
-                                config.lat = fetch_result.lat || 0;
-                                config.lng = fetch_result.lng || 0;
-                            }
+                            raw_totel_km = fetch_result.totel_km || "";
                         }
                     }
-                    
-                    const initial_odo = total_odo;
-                    
-                    const end_date = new Date(start_date.getTime() + (broadcasts_per_day * 5000));
-                    this.log(`[${imei}] Fetching real historical track to avoid zigzags...`);
-                    const historical_track = await this.fetch_historical_track_window(imei, start_date, end_date);
-                    this.log(`[${imei}] Found ${historical_track.length} real track coordinates during this window.`);
-                    
-                    for (let i = 0; i < broadcasts_per_day; i++) {
-                        if (this.kill_all_drives) break;
-                        
-                        const current_time = new Date(start_date.getTime() + (i * 5000));
-                        const time_str = this.formatDateStr(current_time);
-                        
-                        const odo_str = `${total_odo.toFixed(6)}-${total_odo.toFixed(6)}`;
-                        
-                        let lat = config.lat;
-                        let lng = config.lng;
-                        if (historical_track && historical_track.length > 0) {
-                            // Find closest record in historical_track
-                            let closest = historical_track[0];
-                            let min_diff = Math.abs(new Date(closest.dt.replace(' ', 'T') + 'Z') - current_time);
-                            
-                            for (let j = 1; j < historical_track.length; j++) {
-                                const diff = Math.abs(new Date(historical_track[j].dt.replace(' ', 'T') + 'Z') - current_time);
-                                if (diff < min_diff) {
-                                    min_diff = diff;
-                                    closest = historical_track[j];
+
+                    let is_dual = raw_totel_km.includes("-");
+                    let odo_0 = 0.0, odo_1 = 0.0;
+                    if (is_dual) {
+                        const parts = raw_totel_km.split("-");
+                        odo_0 = parseFloat(parts[0]) || 0.0;
+                        odo_1 = parseFloat(parts[1]) || 0.0;
+                    } else if (raw_totel_km) {
+                        odo_0 = parseFloat(raw_totel_km) || 0.0;
+                        odo_1 = odo_0;
+                    }
+                    const odo_str = is_dual ? `${odo_0.toFixed(6)}-${odo_1.toFixed(6)}` : `${odo_0.toFixed(6)}`;
+                    this.log(`[${imei}] Preserved Odometer: ${odo_str} (prevents negative KM).`);
+
+                    // 3. Segment trips
+                    let trips = [];
+                    let curr = [];
+                    for (let i = 0; i < pkts.length; i++) {
+                        const p = pkts[i];
+                        const spd = parseFloat(p.speed || 0);
+                        const ign = String(p.i_status || '0');
+                        if (spd > 0 || ign === '1') {
+                            curr.push(p);
+                        } else {
+                            if (curr.length > 1) {
+                                const o1 = parseFloat(curr[0].totel_km && curr[0].totel_km.includes('-') ? curr[0].totel_km.split('-')[1] : (curr[0].totel_km || 0));
+                                const o2 = parseFloat(curr[curr.length - 1].totel_km && curr[curr.length - 1].totel_km.includes('-') ? curr[curr.length - 1].totel_km.split('-')[1] : (curr[curr.length - 1].totel_km || 0));
+                                const dist = Math.max(0.0, o2 - o1);
+                                const t1 = new Date(curr[0].dt.replace(' ', 'T') + 'Z');
+                                const t2 = new Date(curr[curr.length - 1].dt.replace(' ', 'T') + 'Z');
+                                const dur = Math.round((t2.getTime() - t1.getTime()) / 1000);
+                                if (dist >= 0.05 || dur >= 60) {
+                                    trips.push({
+                                        start_time_utc: curr[0].dt,
+                                        end_time_utc: curr[curr.length - 1].dt,
+                                        start_time_ist: curr[0].dt_s,
+                                        end_time_ist: curr[curr.length - 1].dt_s,
+                                        dist_km: dist.toFixed(3),
+                                        dur_sec: dur,
+                                        start_lat: curr[0].lat,
+                                        start_lng: curr[0].lng,
+                                        end_lat: curr[curr.length - 1].lat,
+                                        end_lng: curr[curr.length - 1].lng,
+                                        gap_sec: 0
+                                    });
                                 }
                             }
+                            curr = [];
+                        }
+                    }
+                    if (curr.length > 1) {
+                        const o1 = parseFloat(curr[0].totel_km && curr[0].totel_km.includes('-') ? curr[0].totel_km.split('-')[1] : (curr[0].totel_km || 0));
+                        const o2 = parseFloat(curr[curr.length - 1].totel_km && curr[curr.length - 1].totel_km.includes('-') ? curr[curr.length - 1].totel_km.split('-')[1] : (curr[curr.length - 1].totel_km || 0));
+                        const dist = Math.max(0.0, o2 - o1);
+                        const t1 = new Date(curr[0].dt.replace(' ', 'T') + 'Z');
+                        const t2 = new Date(curr[curr.length - 1].dt.replace(' ', 'T') + 'Z');
+                        const dur = Math.round((t2.getTime() - t1.getTime()) / 1000);
+                        if (dist >= 0.05 || dur >= 60) {
+                            trips.push({
+                                start_time_utc: curr[0].dt,
+                                end_time_utc: curr[curr.length - 1].dt,
+                                start_time_ist: curr[0].dt_s,
+                                end_time_ist: curr[curr.length - 1].dt_s,
+                                dist_km: dist.toFixed(3),
+                                dur_sec: dur,
+                                start_lat: curr[0].lat,
+                                start_lng: curr[0].lng,
+                                end_lat: curr[curr.length - 1].lat,
+                                end_lng: curr[curr.length - 1].lng,
+                                gap_sec: 0
+                            });
+                        }
+                    }
+
+                    // 4. Select target trip (prefer Trip 5, 4, or 3)
+                    let target_trip_idx = -1;
+                    if (trips.length >= 5) {
+                        target_trip_idx = 4; // Trip 5
+                    } else if (trips.length >= 3) {
+                        target_trip_idx = trips.length >= 4 ? 3 : 2; // Trip 4 or Trip 3
+                    } else if (trips.length > 0) {
+                        target_trip_idx = trips.length - 1; // Last trip
+                    }
+
+                    if (target_trip_idx >= 0) {
+                        const selected_trip = trips[target_trip_idx];
+                        const t_end = new Date(selected_trip.end_time_utc.replace(' ', 'T') + 'Z');
+                        const ext_end = new Date(t_end.getTime() + (inject_seconds * 1000));
+                        const win_start_utc = selected_trip.end_time_utc;
+                        const win_end_utc = this.formatDateStr(ext_end);
+
+                        this.log(`[${imei}] Extending Trip ${target_trip_idx + 1} from ${win_start_utc} to ${win_end_utc} (+${config.target_hours} hrs)...`);
+
+                        // A. Update halt packets in {imei} during idle window
+                        const updateSql = `UPDATE \`${imei}\` SET i_status = '1', jcb_ac = '1-1-1-1', speed = 0, totel_km = '${odo_str}' WHERE dt >= '${win_start_utc}' AND dt <= '${win_end_utc}'`;
+                        await this.executeDual(updateSql, "update");
+
+                        // B. Continuous heartbeats every 60s to ensure smooth playback & jar runtime
+                        const heartbeatRows = [];
+                        const total_heartbeats = Math.floor(inject_seconds / 60);
+                        const lat_val = selected_trip.end_lat;
+                        const lng_val = selected_trip.end_lng;
+                        
+                        for (let h = 1; h <= total_heartbeats; h++) {
+                            const pkt_date = new Date(t_end.getTime() + (h * 60000));
+                            const dt_str = this.formatDateStr(pkt_date);
+                            const dt_s_str = this.formatDateStrIST(pkt_date);
+                            heartbeatRows.push(`('${dt_str}', '${dt_s_str}', '${lat_val}', '${lng_val}', '0', '1', '${odo_str}', '1-1-1-1', 2782)`);
+                        }
+
+                        if (heartbeatRows.length > 0) {
+                            for (let b = 0; b < heartbeatRows.length; b += 200) {
+                                const batch = heartbeatRows.slice(b, b + 200);
+                                const insSql = `INSERT IGNORE INTO \`${imei}\` (dt, dt_s, lat, lng, speed, i_status, totel_km, jcb_ac, pack_count) VALUES ${batch.join(',')}`;
+                                await this.executeDual(insSql, "insert");
+                            }
+                        }
+
+                        // C. Final clean OFF packet at window end + 1 second
+                        const final_off_utc = this.formatDateStr(new Date(ext_end.getTime() + 1000));
+                        const final_off_ist = this.formatDateStrIST(new Date(ext_end.getTime() + 1000));
+                        const finalOffSql = `INSERT IGNORE INTO \`${imei}\` (dt, dt_s, lat, lng, speed, i_status, totel_km, jcb_ac, pack_count) VALUES ('${final_off_utc}', '${final_off_ist}', '${lat_val}', '${lng_val}', '0', '0', '${odo_str}', '0-0-0-0', 2782)`;
+                        await this.executeDual(finalOffSql, "insert");
+                    }
+
+                    // 5. Update reports table on both dev.igps.io and igps.io
+                    const repRows = await this.runQuery('dev.igps.io', `SELECT * FROM reports WHERE imei='${imei}' AND dt LIKE '${target_date_str}%'`) || [];
+                    if (repRows && repRows.length > 0) {
+                        const row = repRows[0];
+                        const normDurs = (row.normal_duration || "").split(',');
+                        const normETs = (row.normal_end_time || "").split(',');
+                        const acDurs = (row.ac_overall_time || "").split(',');
+                        const acETs = (row.ac_end_time || "").split(',');
+                        
+                        if (target_trip_idx >= 0 && target_trip_idx < normDurs.length) {
+                            const origDur = parseInt(normDurs[target_trip_idx]) || 0;
+                            const newDur = origDur + inject_seconds;
+                            normDurs[target_trip_idx] = newDur.toString();
+                            acDurs[target_trip_idx] = newDur.toString();
                             
-                            // Only use it if the time difference is reasonable (within 15 minutes)
-                            if (min_diff < 900000) {
-                                lat = closest.lat;
-                                lng = closest.lng;
+                            const normSTs = (row.normal_start_time || "").split(',');
+                            if (normSTs[target_trip_idx]) {
+                                const stObj = new Date(normSTs[target_trip_idx].replace(' ', 'T') + 'Z');
+                                const newEtObj = new Date(stObj.getTime() + (newDur * 1000));
+                                normETs[target_trip_idx] = this.formatDateStr(newEtObj);
+                                acETs[target_trip_idx] = normETs[target_trip_idx];
                             }
                         }
                         
-                        const coord_str = `+${parseFloat(lat).toFixed(6)},+${parseFloat(lng).toFixed(6)}`;
+                        const newRunTime = (parseInt(row.run_time) || 0) + inject_seconds;
+                        const newAcRunTime = (parseInt(row.ac_run_time) || 0) + inject_seconds;
+                        const newEngineIdleTime = (parseInt(row.engine_idle_time) || 0) + inject_seconds;
                         
-                        // Injection parameters:
-                        // speed=0, ignition=0 (1-0-0-0-0), jcb_ac=1-1-1-1
-                        const payload = `##,${imei},0,${time_str},${coord_str},0,${v_voltage.toFixed(1)},0,0,91.26,${odo_str},0-0,0-0,0-0,+0.0,0,1-1-1-1,2000-00-00 00:00:00,2000-00-00 00:00:00,${v_voltage.toFixed(0)},3950,0,1-0-0-0-0,0,0,0-0,0,0,2782,1,0-26,3950,1,0,0,0,00000-00,$`;
-                        client.publish(topic, payload);
-                        await new Promise(r => setTimeout(r, 5)); // 5ms sleep
+                        const updateRepSql = `UPDATE reports SET run_time = '${newRunTime}', ac_run_time = '${newAcRunTime}', engine_idle_time = '${newEngineIdleTime}', normal_duration = '${normDurs.join(',')}', normal_end_time = '${normETs.join(',')}', ac_overall_time = '${acDurs.join(',')}', ac_end_time = '${acETs.join(',')}' WHERE imei='${imei}' AND dt LIKE '${target_date_str}%'`;
+                        await this.executeDual(updateRepSql, "update");
+                        this.log(`[${imei}] Synchronized reports table on dev and live (Trip ${target_trip_idx + 1} extended by ${config.target_hours}h).`);
+                    } else if (trips.length > 0) {
+                        const selected_trip = trips[target_trip_idx];
+                        selected_trip.dur_sec += inject_seconds;
+                        const t_st = new Date(selected_trip.start_time_utc.replace(' ', 'T') + 'Z');
+                        selected_trip.end_time_utc = this.formatDateStr(new Date(t_st.getTime() + (selected_trip.dur_sec * 1000)));
+                        
+                        const st_str = trips.map(t => t.start_time_utc).join(',');
+                        const et_str = trips.map(t => t.end_time_utc).join(',');
+                        const km_str = trips.map(t => t.dist_km).join(',');
+                        const dur_str = trips.map(t => t.dur_sec).join(',');
+                        const slat_str = trips.map(t => t.start_lat).join(',');
+                        const slng_str = trips.map(t => t.start_lng).join(',');
+                        const elat_str = trips.map(t => t.end_lat).join(',');
+                        const elng_str = trips.map(t => t.end_lng).join(',');
+                        
+                        const total_day_dur = trips.reduce((acc, t) => acc + t.dur_sec, 0);
+                        const total_day_km = trips.reduce((acc, t) => acc + parseFloat(t.dist_km), 0).toFixed(3);
+                        
+                        const insRepSql = `INSERT INTO reports 
+                        (imei, dt, km, run_time, idle_time, engine_idle_time, overspeed_time, overspeed_count, 
+                         ac_run_time, ac_idle_time, ac_overall_time, ac_overall_km, ac_start_lat, ac_start_lng, ac_end_lat, ac_end_lng, ac_start_time, ac_end_time,
+                         normal_start_time, normal_end_time, normal_km, normal_duration, normal_start_lat, normal_start_lng, normal_end_lat, normal_end_lng, username)
+                        VALUES 
+                        ('${imei}', '${target_date_str} 00:00:00', '${total_day_km}', '${total_day_dur}', '35000', '${inject_seconds}', '0', '0',
+                         '${total_day_dur}', '0', '${dur_str}', '${km_str}', '${slat_str}', '${slng_str}', '${elat_str}', '${elng_str}', '${st_str}', '${et_str}',
+                         '${st_str}', '${et_str}', '${km_str}', '${dur_str}', '${slat_str}', '${slng_str}', '${elat_str}', '${elng_str}', 'trichy')`;
+                        
+                        await this.executeDual(insRepSql, "insert");
+                        this.log(`[${imei}] Inserted reports row on dev and live with Trip ${target_trip_idx + 1} extended.`);
                     }
-                    
-                    // Send final Ignition OFF packet exactly 1 second after the last driving packet
-                    const final_time = new Date(start_date.getTime() + (broadcasts_per_day * 5000) + 1000);
-                    const final_time_str = this.formatDateStr(final_time);
-                    const final_odo_str = `${total_odo.toFixed(6)}-${total_odo.toFixed(6)}`;
-                    
-                    let final_lat = config.lat;
-                    let final_lng = config.lng;
-                    if (historical_track && historical_track.length > 0) {
-                        final_lat = historical_track[historical_track.length - 1].lat;
-                        final_lng = historical_track[historical_track.length - 1].lng;
-                    }
-                    const final_coord_str = `+${parseFloat(final_lat).toFixed(6)},+${parseFloat(final_lng).toFixed(6)}`;
-                    
-                    // speed=0, ignition=0 (1-0-0-0-0), jcb_ac=0-0-0-0
-                    const end_payload = `##,${imei},0,${final_time_str},${final_coord_str},0,${v_voltage.toFixed(1)},0,0,91.26,${final_odo_str},0-0,0-0,0-0,+0.0,0,0-0-0-0,2000-00-00 00:00:00,2000-00-00 00:00:00,${v_voltage.toFixed(0)},3950,0,1-0-0-0-0,0,0,0-0,0,0,2782,0,0-26,3950,0,0,0,0,00000-00,$`;
-                    client.publish(topic, end_payload);
-                    
-                    this.log(`[${imei}] Sent final Engine Hours OFF packet. Finished Engine Hours Drive.`);
-                    this.save_history(imei, "drive", total_odo - initial_odo, initial_odo, total_odo, config.target_hours, config.shield_hours || 0, config.history_date);
+
+                    this.log(`[${imei}] Ghost Drive Hours complete. Zero negative KM and seamless Travel Summary.`);
+                    this.save_history(imei, "drive", 0.0, odo_1, odo_1, config.target_hours, config.shield_hours || 0, target_date_str);
                     client.end();
                     resolve();
                     
