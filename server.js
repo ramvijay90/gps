@@ -287,7 +287,9 @@ app.post('/api/start', (req, res) => {
         parseFloat(data.speed || 0),
         parseFloat(data.start_today_odo || 0),
         parseFloat(data.shield_hours || 0),
-        data.target_trip || 'auto'
+        data.target_trip || 'auto',
+        parseFloat(data.initial_gap_mins || 4.2),
+        parseFloat(data.halt_mins || 3.5)
     );
     
     res.json({ success: success, message: success ? "Spoofer started successfully." : "Spoofer is already running." });
@@ -1171,6 +1173,366 @@ app.post('/api/fetch_existing_trips', async (req, res) => {
     }
     
     return res.json({ success: false, message: 'Could not fetch any trip data.' });
+});
+
+function haversineMeters(lat1, lon1, lat2, lon2) {
+    const R = 6371000;
+    const toRad = deg => deg * Math.PI / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+}
+
+async function queryEndpoint(host, sql, type = 'select') {
+    const sqlB64 = Buffer.from(sql).toString('base64');
+    const params = new URLSearchParams();
+    params.append('action', 'select');
+    params.append('query', sqlB64);
+    params.append('type', type);
+    const res = await axios.post(`http://${host}/http.php`, params.toString(), {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'Mozilla/5.0' },
+        timeout: 30000
+    });
+    return res.data;
+}
+
+app.post('/api/preview_sync', async (req, res) => {
+    const { imei, date } = req.body;
+    if (!imei || !date) {
+        return res.json({ success: false, message: 'IMEI and Date are required.' });
+    }
+
+    try {
+        const d = new Date(date);
+        const prevD = new Date(d);
+        prevD.setDate(prevD.getDate() - 1);
+        const prevDateStr = prevD.toISOString().split('T')[0];
+        const utcStart = `${prevDateStr} 18:30:00`;
+        const utcEnd = `${date} 18:30:00`;
+
+        // 1. Vehicle name from devices
+        let vehicleName = imei;
+        try {
+            const devRows = await queryEndpoint('igps.io', `SELECT vehicle_name, devicename FROM devices WHERE imei = '${imei}' LIMIT 1`);
+            if (Array.isArray(devRows) && devRows.length > 0) {
+                vehicleName = devRows[0].vehicle_name || devRows[0].devicename || imei;
+            }
+        } catch(e) {}
+
+        // 2. App report & packets
+        let appReportKm = null;
+        let appCount = 0;
+        let appPlaybackKm = null;
+        let gapsCount = 0;
+
+        try {
+            const repRows = await queryEndpoint('igps.io', `SELECT km FROM reports WHERE imei = '${imei}' AND dt = '${date} 00:00:00' LIMIT 1`);
+            if (Array.isArray(repRows) && repRows.length > 0) {
+                appReportKm = repRows[0].km;
+            }
+        } catch(e) {}
+
+        try {
+            const cntRows = await queryEndpoint('igps.io', `SELECT count(*) as cnt FROM \`${imei}\` WHERE dt >= '${utcStart}' AND dt <= '${utcEnd}'`);
+            if (Array.isArray(cntRows) && cntRows.length > 0) {
+                appCount = cntRows[0].cnt;
+            }
+        } catch(e) {}
+
+        // App Playback via history_web
+        try {
+            const p = new URLSearchParams();
+            p.append('imei', imei);
+            p.append('from', `${date} 00:00:00`);
+            p.append('to', `${date} 23:59:59`);
+            p.append('username', 'igps');
+            p.append('action', 'history_web');
+            const hRes = await axios.post('http://igps.io/http.php', p.toString(), {
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, timeout: 15000
+            });
+            if (Array.isArray(hRes.data) && hRes.data.length > 0) {
+                const o0 = parseFloat(hRes.data[0].totel_km.split('-').pop());
+                const o1 = parseFloat(hRes.data[hRes.data.length - 1].totel_km.split('-').pop());
+                if (!isNaN(o0) && !isNaN(o1)) {
+                    appPlaybackKm = `${(o1 - o0).toFixed(1)} Km`;
+                }
+
+                // Check gaps in app packets
+                for (let i = 0; i < hRes.data.length - 1; i++) {
+                    const lat1 = parseFloat(hRes.data[i].lat);
+                    const lon1 = parseFloat(hRes.data[i].lng);
+                    const lat2 = parseFloat(hRes.data[i+1].lat);
+                    const lon2 = parseFloat(hRes.data[i+1].lng);
+                    if (!isNaN(lat1) && !isNaN(lat2) && haversineMeters(lat1, lon1, lat2, lon2) > 300) {
+                        gapsCount++;
+                    }
+                }
+            }
+        } catch(e) {}
+
+        // 3. Dev report & packets
+        let devReportKm = null;
+        let devCount = 0;
+        let devPlaybackKm = null;
+
+        try {
+            const repRows = await queryEndpoint('dev.igps.io', `SELECT km FROM reports WHERE imei = '${imei}' AND dt = '${date} 00:00:00' LIMIT 1`);
+            if (Array.isArray(repRows) && repRows.length > 0) {
+                devReportKm = repRows[0].km;
+            }
+        } catch(e) {}
+
+        try {
+            const cntRows = await queryEndpoint('dev.igps.io', `SELECT count(*) as cnt FROM \`${imei}\` WHERE dt >= '${utcStart}' AND dt <= '${utcEnd}'`);
+            if (Array.isArray(cntRows) && cntRows.length > 0) {
+                devCount = cntRows[0].cnt;
+            }
+        } catch(e) {}
+
+        try {
+            const p = new URLSearchParams();
+            p.append('imei', imei);
+            p.append('from', `${date} 00:00:00`);
+            p.append('to', `${date} 23:59:59`);
+            p.append('username', 'trichy');
+            p.append('action', 'history_web');
+            const hRes = await axios.post('http://dev.igps.io/http.php', p.toString(), {
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, timeout: 15000
+            });
+            if (Array.isArray(hRes.data) && hRes.data.length > 0) {
+                const o0 = parseFloat(hRes.data[0].totel_km.split('-').pop());
+                const o1 = parseFloat(hRes.data[hRes.data.length - 1].totel_km.split('-').pop());
+                if (!isNaN(o0) && !isNaN(o1)) {
+                    devPlaybackKm = `${(o1 - o0).toFixed(1)} Km`;
+                }
+            }
+        } catch(e) {}
+
+        return res.json({
+            success: true,
+            vehicleName,
+            appPoints: appCount,
+            appReportKm,
+            appPlaybackKm,
+            devPoints: devCount,
+            devReportKm,
+            devPlaybackKm,
+            gapsCount
+        });
+    } catch(err) {
+        return res.json({ success: false, message: err.message });
+    }
+});
+
+app.post('/api/sync_app_to_panel', (req, res) => {
+    const { imeis, date, target_km } = req.body;
+    if (!imeis || !Array.isArray(imeis) || imeis.length === 0 || !date) {
+        return res.json({ success: false, message: 'Vehicle IMEIs and Date are required.' });
+    }
+
+    engine.log(`[SYNC-MODE] Starting App-to-Panel Sync for ${imeis.length} vehicle(s) on ${date}...`);
+    
+    imeis.forEach(async (imei) => {
+        try {
+            engine.log(`[SYNC-MODE] [${imei}] Step 1/6: Fetching telemetry & reports from Mobile App (igps.io)...`);
+            
+            const d = new Date(date);
+            const prevD = new Date(d);
+            prevD.setDate(prevD.getDate() - 1);
+            const prevDateStr = prevD.toISOString().split('T')[0];
+            const utcStart = `${prevDateStr} 18:30:00`;
+            const utcEnd = `${date} 18:30:00`;
+
+            // 1. Fetch App Report
+            const repRows = await queryEndpoint('igps.io', `SELECT * FROM reports WHERE imei = '${imei}' AND dt = '${date} 00:00:00' LIMIT 1`);
+            const appRep = (Array.isArray(repRows) && repRows.length > 0) ? repRows[0] : null;
+
+            // 2. Fetch App Raw Telemetry Packets
+            const rawPackets = await queryEndpoint('igps.io', `SELECT * FROM \`${imei}\` WHERE dt >= '${utcStart}' AND dt <= '${utcEnd}' ORDER BY dt ASC`);
+            if (!Array.isArray(rawPackets) || rawPackets.length === 0) {
+                engine.log(`[SYNC-MODE] [${imei}] ⚠️ No telemetry packets found on App for ${date}. Skipping.`);
+                return;
+            }
+            engine.log(`[SYNC-MODE] [${imei}] Step 2/6: Loaded ${rawPackets.length} raw telemetry packets from App.`);
+
+            // 3. Scan & Auto-Bridge GPS Drop Gaps (> 300m)
+            const bridgedPackets = [];
+            let bridgeCounter = 99000;
+            let totalBridgedAdded = 0;
+
+            for (let i = 0; i < rawPackets.length; i++) {
+                bridgedPackets.push(rawPackets[i]);
+                if (i < rawPackets.length - 1) {
+                    const p1 = rawPackets[i];
+                    const p2 = rawPackets[i + 1];
+                    const lat1 = parseFloat(p1.lat);
+                    const lon1 = parseFloat(p1.lng);
+                    const lat2 = parseFloat(p2.lat);
+                    const lon2 = parseFloat(p2.lng);
+                    
+                    if (!isNaN(lat1) && !isNaN(lon1) && !isNaN(lat2) && !isNaN(lon2)) {
+                        const dist = haversineMeters(lat1, lon1, lat2, lon2);
+                        if (dist > 300) {
+                            const steps = Math.ceil(dist / 120.0);
+                            const t1 = new Date(p1.dt.replace(' ', 'T') + 'Z');
+                            const t2 = new Date(p2.dt.replace(' ', 'T') + 'Z');
+                            const dtSec = (t2.getTime() - t1.getTime()) / 1000.0;
+                            
+                            const o1 = parseFloat(String(p1.totel_km).split('-').pop()) || 0;
+                            const o2 = parseFloat(String(p2.totel_km).split('-').pop()) || 0;
+                            
+                            for (let s = 1; s < steps; s++) {
+                                const frac = s / steps;
+                                const bLat = (lat1 + frac * (lat2 - lat1)).toFixed(6);
+                                const bLon = (lon1 + frac * (lon2 - lon1)).toFixed(6);
+                                const bTime = new Date(t1.getTime() + frac * dtSec * 1000);
+                                const bDt = bTime.toISOString().replace('T', ' ').substring(0, 19);
+                                const bTimeIst = new Date(bTime.getTime() + 5.5 * 3600 * 1000);
+                                const bDts = bTimeIst.toISOString().replace('T', ' ').substring(0, 19);
+                                const bOdo = (o1 + frac * (o2 - o1)).toFixed(3);
+                                
+                                bridgeCounter++;
+                                totalBridgedAdded++;
+                                bridgedPackets.push({
+                                    dt: bDt,
+                                    dt_s: bDts,
+                                    imei: imei,
+                                    lat: (bLat > 0 ? '+' : '') + bLat,
+                                    lng: (bLon > 0 ? '+' : '') + bLon,
+                                    speed: '30',
+                                    battery: '12.0',
+                                    i_time: '0',
+                                    i_status: '1',
+                                    course: '78',
+                                    overspeed: '0',
+                                    jcb_ac: '0-0-0-0',
+                                    totel_km: `${bOdo}-${bOdo}`,
+                                    t_w: '+0.0$0',
+                                    pack_count: bridgeCounter
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            engine.log(`[SYNC-MODE] [${imei}] Step 3/6: Auto-bridged ${totalBridgedAdded} intermediate points across GPS drop jumps.`);
+
+            // 4. Calibrate odometers to match Target KM
+            let desiredKm = target_km;
+            if (!desiredKm && appRep && appRep.km) {
+                desiredKm = parseFloat(appRep.km);
+            }
+            
+            // Find moving start/end
+            let idxStart = -1;
+            let idxEnd = -1;
+            for (let i = 0; i < bridgedPackets.length; i++) {
+                const spd = parseFloat(bridgedPackets[i].speed) || 0;
+                const ist = parseInt(bridgedPackets[i].i_status) || 0;
+                if (spd > 0 || ist === 1) {
+                    if (idxStart === -1) idxStart = i;
+                    idxEnd = i;
+                }
+            }
+
+            if (idxStart !== -1 && idxEnd !== -1 && desiredKm) {
+                const baseStartOdo = parseFloat(String(bridgedPackets[idxStart].totel_km).split('-').pop()) || 2000;
+                const targetEndOdo = baseStartOdo + desiredKm;
+                const origStartOdo = parseFloat(String(bridgedPackets[idxStart].totel_km).split('-').pop()) || 0;
+                const origEndOdo = parseFloat(String(bridgedPackets[idxEnd].totel_km).split('-').pop()) || 0;
+                const origSpan = origEndOdo - origStartOdo;
+
+                for (let i = 0; i < bridgedPackets.length; i++) {
+                    let curOdo = baseStartOdo;
+                    if (i > idxEnd) {
+                        curOdo = targetEndOdo;
+                    } else if (i >= idxStart) {
+                        const curOrig = parseFloat(String(bridgedPackets[i].totel_km).split('-').pop()) || 0;
+                        const frac = origSpan > 0 ? (curOrig - origStartOdo) / origSpan : ((i - idxStart) / Math.max(1, idxEnd - idxStart));
+                        curOdo = baseStartOdo + frac * desiredKm;
+                    }
+                    const odoStr = curOdo.toFixed(3);
+                    bridgedPackets[i].totel_km = `${odoStr}-${odoStr}`;
+                }
+                engine.log(`[SYNC-MODE] [${imei}] Step 4/6: Calibrated odometer span to exactly ${desiredKm.toFixed(1)} Km.`);
+            }
+
+            // 5. Write to DEV database
+            engine.log(`[SYNC-MODE] [${imei}] Step 5/6: Overwriting telemetry in dev.igps.io table...`);
+            await queryEndpoint('dev.igps.io', `DROP TRIGGER IF EXISTS \`trg_${imei}_lock_km\``, 'update');
+            await queryEndpoint('dev.igps.io', `DELETE FROM \`${imei}\` WHERE dt >= '${utcStart}' AND dt <= '${utcEnd}'`, 'update');
+
+            // Bulk insert in batches of 50
+            const cols = ['dt', 'dt_s', 'imei', 'lat', 'lng', 'speed', 'battery', 'i_time', 'i_status', 'course', 'overspeed', 'jcb_ac', 'totel_km', 't_w', 'pack_count'];
+            for (let b = 0; b < bridgedPackets.length; b += 50) {
+                const batch = bridgedPackets.slice(b, b + 50);
+                const values = batch.map(p => {
+                    const dt = p.dt;
+                    const dts = p.dt_s;
+                    const lat = p.lat;
+                    const lng = p.lng;
+                    const spd = p.speed || '0';
+                    const bat = p.battery || '12.0';
+                    const it = p.i_time || '0';
+                    const is = p.i_status || '0';
+                    const crs = p.course || '0';
+                    const os = p.overspeed || '0';
+                    const jcb = p.jcb_ac || '0-0-0-0';
+                    const odo = p.totel_km || '0.000-0.000';
+                    const tw = p.t_w || '+0.0$0';
+                    const pc = p.pack_count || '0';
+                    return `('${dt}', '${dts}', '${imei}', '${lat}', '${lng}', '${spd}', '${bat}', '${it}', '${is}', '${crs}', '${os}', '${jcb}', '${odo}', '${tw}', ${pc})`;
+                });
+                const insSql = `INSERT INTO \`${imei}\` (${cols.join(', ')}) VALUES ${values.join(', ')}`;
+                await queryEndpoint('dev.igps.io', insSql, 'update');
+            }
+
+            // Sync report row to DEV reports
+            if (appRep) {
+                const repKm = desiredKm ? desiredKm.toFixed(1) : (appRep.km || '0');
+                const devRepExist = await queryEndpoint('dev.igps.io', `SELECT sno FROM reports WHERE imei = '${imei}' AND dt = '${date} 00:00:00' LIMIT 1`);
+                if (Array.isArray(devRepExist) && devRepExist.length > 0) {
+                    const upSql = `UPDATE reports SET km = '${repKm}', run_time = '${appRep.run_time || 0}', idle_time = '${appRep.idle_time || 0}', normal_start_time = '${appRep.normal_start_time || ''}', normal_end_time = '${appRep.normal_end_time || ''}', normal_km = '${appRep.normal_km || ''}', normal_duration = '${appRep.normal_duration || ''}', normal_start_lat = '${appRep.normal_start_lat || ''}', normal_start_lng = '${appRep.normal_start_lng || ''}', normal_end_lat = '${appRep.normal_end_lat || ''}', normal_end_lng = '${appRep.normal_end_lng || ''}' WHERE imei = '${imei}' AND dt = '${date} 00:00:00'`;
+                    await queryEndpoint('dev.igps.io', upSql, 'update');
+                } else {
+                    const insRepSql = `INSERT INTO reports (imei, dt, km, run_time, idle_time, engine_idle_time, overspeed_time, overspeed_count, ac_run_time, ac_idle_time, normal_start_time, normal_end_time, normal_km, normal_duration, normal_start_lat, normal_start_lng, normal_end_lat, normal_end_lng, username) VALUES ('${imei}', '${date} 00:00:00', '${repKm}', '${appRep.run_time || 0}', '${appRep.idle_time || 0}', '0', '0', '0', '0', '0', '${appRep.normal_start_time || ''}', '${appRep.normal_end_time || ''}', '${appRep.normal_km || ''}', '${appRep.normal_duration || ''}', '${appRep.normal_start_lat || ''}', '${appRep.normal_start_lng || ''}', '${appRep.normal_end_lat || ''}', '${appRep.normal_end_lng || ''}', 'trichy')`;
+                    await queryEndpoint('dev.igps.io', insRepSql, 'update');
+                }
+            }
+
+            // 6. Verify Playback on dev.igps.io
+            engine.log(`[SYNC-MODE] [${imei}] Step 6/6: Verifying Route Playback on Web Panel...`);
+            const p = new URLSearchParams();
+            p.append('imei', imei);
+            p.append('from', `${date} 00:00:00`);
+            p.append('to', `${date} 23:59:59`);
+            p.append('username', 'trichy');
+            p.append('action', 'history_web');
+            const hRes = await axios.post('http://dev.igps.io/http.php', p.toString(), {
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, timeout: 15000
+            });
+
+            if (Array.isArray(hRes.data) && hRes.data.length > 0) {
+                const o0 = parseFloat(hRes.data[0].totel_km.split('-').pop());
+                const o1 = parseFloat(hRes.data[hRes.data.length - 1].totel_km.split('-').pop());
+                const verifiedKm = (o1 - o0).toFixed(1);
+                engine.log(`[SYNC-MODE] [${imei}] ✅ SYNC COMPLETE! Verified on dev.igps.io: ${hRes.data.length} continuous packets, Total KM: ${verifiedKm}Km (Time: ${hRes.data[0].dt_s} -> ${hRes.data[hRes.data.length - 1].dt_s})`);
+            } else {
+                engine.log(`[SYNC-MODE] [${imei}] ⚠️ Packets synced but history_web returned no points. Check parameters.`);
+            }
+
+            engine.save_history(imei, 'sync_app', desiredKm || 0, 0, 0, 0, 0, date);
+        } catch(err) {
+            console.error(`[SYNC-MODE ERROR] [${imei}] ${err.message}`);
+            engine.log(`[SYNC-MODE ERROR] [${imei}] ❌ Error: ${err.message}`);
+        }
+    });
+
+    res.json({ success: true, message: `Sync task dispatched to background for ${imeis.length} vehicle(s).` });
 });
 
 app.post('/api/run-travel-report', (req, res) => {

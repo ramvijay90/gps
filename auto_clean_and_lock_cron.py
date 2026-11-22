@@ -180,13 +180,21 @@ def process_vehicle(imei, veh_no, target_date, force=False):
             r_run = int(r.get('run_time') or 0)
             r_idle = int(r.get('engine_idle_time') or 0)
             r_dur = str(r.get('normal_duration') or '')
-            if is_hours_mode and injected_idle_sec > 0:
-                if r_idle >= injected_idle_sec and r_dur:
-                    pristine_row = r
-                    break
-            elif r_run > 0 and '.' in str(r.get('km', '')) and r_dur:
-                if not pristine_row or r_run > int(pristine_row.get('run_time') or 0):
-                    pristine_row = r
+            r_st = str(r.get('normal_start_time') or '')
+            r_et = str(r.get('normal_end_time') or '')
+            st_len = len([x for x in r_st.split(',') if x])
+            et_len = len([x for x in r_et.split(',') if x])
+            dur_len = len([x for x in r_dur.split(',') if x])
+
+            # A truly pristine row MUST have matching array lengths for start, end, and duration
+            if st_len > 0 and st_len == et_len == dur_len:
+                if is_hours_mode and injected_idle_sec > 0:
+                    if r_idle >= injected_idle_sec and r_dur:
+                        pristine_row = r
+                        break
+                elif r_run > 0 and '.' in str(r.get('km', '')) and r_dur:
+                    if not pristine_row or r_run > int(pristine_row.get('run_time') or 0):
+                        pristine_row = r
 
         if pristine_row:
             log(f"[+] Found pristine authoritative spoofed row in reports (KM={pristine_row.get('km')}, Run={pristine_row.get('run_time')}s, Idle={pristine_row.get('engine_idle_time')}s). Purging all duplicates...")
@@ -340,15 +348,19 @@ def get_spoofed_vehicles_for_date(target_date):
         except Exception:
             pass
 
-    # 2. From gps_history_log in database (primary source for both KM and Hours modes!)
+    # 2. From gps_history_log in database (STRICTLY for this specific target_date!)
     db_hist = run_query("dev.igps.io", f"SELECT DISTINCT imei, mode, added_km, target_hours FROM gps_history_log WHERE date = '{target_date}'")
     if db_hist and isinstance(db_hist, list):
         for h in db_hist:
             imei_val = str(h.get('imei', '')).strip()
-            if imei_val:
+            mode_val = str(h.get('mode', '')).lower()
+            added_km = float(h.get('added_km') or 0)
+            target_hrs = float(h.get('target_hours') or 0)
+            # Only include if actually spoofed on target_date
+            if imei_val and (added_km > 0 or target_hrs > 0 or mode_val in ['drive', 'drive_km', 'ghost', 'spoof', 'night', 'real_ghost_drive', 'night_shift_spoof', 'ghost_hours']):
                 imeis.add(imei_val)
 
-    # 3. From history.json (local cache)
+    # 3. From history.json (local cache, STRICTLY for this specific target_date!)
     if os.path.exists(HISTORY_FILE):
         try:
             with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
@@ -358,23 +370,10 @@ def get_spoofed_vehicles_for_date(target_date):
                         added_km = float(h.get('added_km') or 0)
                         target_hrs = float(h.get('target_hours') or 0)
                         mode = str(h.get('mode', '')).lower()
-                        if added_km > 0 or target_hrs > 0 or mode in ['drive', 'drive_km', 'ghost', 'spoof', 'night']:
-                            imeis.add(h['imei'])
+                        if added_km > 0 or target_hrs > 0 or mode in ['drive', 'drive_km', 'ghost', 'spoof', 'night', 'real_ghost_drive', 'night_shift_spoof', 'ghost_hours']:
+                            imeis.add(str(h['imei']).strip())
         except Exception as e:
             log(f"[-] Error reading history file: {e}")
-
-    # 4. From config/spoofed_vehicles.json (permanent registry)
-    if os.path.exists(CONFIG_FILE):
-        try:
-            with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-                cfg_list = json.load(f)
-                for c in cfg_list:
-                    if c.get('active', True) and c.get('imei'):
-                        imeis.add(c['imei'])
-                        if c.get('vehicle_no'):
-                            veh_map[c['imei']] = c['vehicle_no']
-        except Exception as e:
-            log(f"[-] Error reading config: {e}")
 
     result = []
     for imei in sorted(list(imeis)):

@@ -52,10 +52,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const refreshDateInput = document.getElementById('refresh_date');
     if (refreshDateInput) refreshDateInput.value = yesterdayStr;
 
+    const syncDateInput = document.getElementById('sync_date');
+    if (syncDateInput) syncDateInput.value = yesterdayStr;
+
     // Mode Switching Logic
     const radioCards = document.querySelectorAll('.radio-card');
     const driveSettings = document.getElementById('drive-settings');
     const refreshSettings = document.getElementById('refresh-settings');
+    const syncSettings = document.getElementById('sync-settings');
     let currentMode = 'parked';
 
     radioCards.forEach(card => {
@@ -70,14 +74,22 @@ document.addEventListener('DOMContentLoaded', () => {
             if (currentMode === 'drive' || currentMode === 'drive_km' || currentMode === 'travel_report' || currentMode === 'travel_hours') {
                 driveSettings.classList.remove('hidden');
                 if (refreshSettings) refreshSettings.classList.add('hidden');
+                if (syncSettings) syncSettings.classList.add('hidden');
                 startBtn.innerText = 'Start Spoofing';
             } else if (currentMode === 'refresh_cache') {
                 driveSettings.classList.add('hidden');
                 if (refreshSettings) refreshSettings.classList.remove('hidden');
+                if (syncSettings) syncSettings.classList.add('hidden');
                 startBtn.innerText = 'Refresh Cached Report';
+            } else if (currentMode === 'sync_app') {
+                driveSettings.classList.add('hidden');
+                if (refreshSettings) refreshSettings.classList.add('hidden');
+                if (syncSettings) syncSettings.classList.remove('hidden');
+                startBtn.innerText = '📲 Sync App to Panel';
             } else {
                 driveSettings.classList.add('hidden');
                 if (refreshSettings) refreshSettings.classList.add('hidden');
+                if (syncSettings) syncSettings.classList.add('hidden');
                 startBtn.innerText = 'Start Spoofing';
             }
             
@@ -377,6 +389,10 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const targetTripEl = document.getElementById('target_trip');
             const targetTrip = targetTripEl ? targetTripEl.value : 'auto';
+            const initialGapEl = document.getElementById('initial_gap_mins');
+            const initialGap = initialGapEl ? parseFloat(initialGapEl.value || '4.2') : 4.2;
+            const haltMinsEl = document.getElementById('halt_mins');
+            const haltMins = haltMinsEl ? parseFloat(haltMinsEl.value || '3.5') : 3.5;
 
             let apiUrl = '/api/start';
             let bodyData = {
@@ -384,7 +400,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 history_date: historyDateStr, target_hours: targetHours, 
                 start_odo: startOdo, start_today_odo: startTodayOdo, speed: speed,
                 shield_hours: shieldHours,
-                target_trip: targetTrip
+                target_trip: targetTrip,
+                initial_gap_mins: initialGap,
+                halt_mins: haltMins
             };
             
             if (currentMode === 'travel_report' || currentMode === 'travel_hours') {
@@ -414,6 +432,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     override_normal_km: overrideNormalKm,
                     override_hours: overrideHours,
                     override_normal_duration: overrideNormalDuration
+                };
+            } else if (currentMode === 'sync_app') {
+                const syncDateEl = document.getElementById('sync_date');
+                const syncDateStr = syncDateEl ? syncDateEl.value : "";
+                const syncOverrideKm = document.getElementById('sync_override_km') ? document.getElementById('sync_override_km').value : "";
+                
+                if (!syncDateStr) {
+                    alert("Please select a target date to sync from App.");
+                    return;
+                }
+                
+                apiUrl = '/api/sync_app_to_panel';
+                bodyData = {
+                    imeis: imeis,
+                    date: syncDateStr,
+                    target_km: syncOverrideKm ? parseFloat(syncOverrideKm) : null
                 };
             }
 
@@ -1307,6 +1341,55 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Display visual log summary
             alert(`Calculation Completed!\n\nTarget Total: ${targetKmVal} KM\nOriginal Total: ${totalOriginalSum.toFixed(3)} KM\nDifference distributed: ${diff.toFixed(3)} KM`);
+        });
+    }
+
+    // Preview Sync App vs Panel Handler
+    const btnPreviewSync = document.getElementById('btn-preview-sync');
+    const syncPreviewBox = document.getElementById('sync-preview-box');
+    if (btnPreviewSync && syncPreviewBox) {
+        btnPreviewSync.addEventListener('click', async () => {
+            const selectedOptions = Array.from(vehicleSelect.selectedOptions);
+            if (selectedOptions.length !== 1) {
+                alert('Please select exactly ONE vehicle to preview its App vs Panel state.');
+                return;
+            }
+            const imei = selectedOptions[0].value;
+            const syncDateEl = document.getElementById('sync_date');
+            const syncDateStr = syncDateEl ? syncDateEl.value : "";
+            if (!syncDateStr) {
+                alert('Please select a target date first.');
+                return;
+            }
+
+            btnPreviewSync.innerText = 'Checking App vs Panel...';
+            btnPreviewSync.disabled = true;
+            syncPreviewBox.classList.remove('hidden');
+            syncPreviewBox.innerHTML = '<span style="color: #38bdf8;">Querying igps.io (App) and dev.igps.io (Panel)...</span>';
+
+            try {
+                const res = await fetch('/api/preview_sync', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ imei, date: syncDateStr })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    syncPreviewBox.innerHTML = `
+                        <div style="color: #4ade80; font-weight: bold; margin-bottom: 4px;">✅ Telemetry Status for ${data.vehicleName || imei} (${syncDateStr}):</div>
+                        <div>📱 <b>Mobile App (igps.io):</b> ${data.appPoints} packets, Report KM: <b>${data.appReportKm || 'N/A'}</b>, Playback KM: <b>${data.appPlaybackKm || 'N/A'}</b></div>
+                        <div>💻 <b>Web Panel (dev.igps.io):</b> ${data.devPoints} packets, Report KM: <b>${data.devReportKm || 'N/A'}</b>, Playback KM: <b>${data.devPlaybackKm || 'N/A'}</b></div>
+                        <div style="margin-top: 4px; color: ${data.gapsCount > 0 ? '#fbbf24' : '#4ade80'};">⚠️ <b>GPS Drop Jumps (>300m):</b> ${data.gapsCount} detected. ${data.gapsCount > 0 ? 'Will be auto-bridged during sync!' : 'No gaps.'}</div>
+                    `;
+                } else {
+                    syncPreviewBox.innerHTML = `<span style="color: #ef4444;">Preview failed: ${data.message}</span>`;
+                }
+            } catch (err) {
+                syncPreviewBox.innerHTML = `<span style="color: #ef4444;">Preview error: ${err.message}</span>`;
+            } finally {
+                btnPreviewSync.innerText = '🔍 Preview App vs Panel State';
+                btnPreviewSync.disabled = false;
+            }
         });
     }
 

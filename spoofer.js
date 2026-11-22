@@ -219,7 +219,7 @@ class SpooferEngine {
         return [];
     }
     
-    start(imeis, lat, lng, mode, history_date, target_hours, start_odo, speed, start_today_odo = 0.0, shield_hours = 0.0, target_trip = 'auto') {
+    start(imeis, lat, lng, mode, history_date, target_hours, start_odo, speed, start_today_odo = 0.0, shield_hours = 0.0, target_trip = 'auto', initial_gap_mins = 4.2, halt_mins = 3.5) {
         const config = {
             lat: parseFloat(lat),
             lng: parseFloat(lng),
@@ -230,7 +230,9 @@ class SpooferEngine {
             start_today_odo: parseFloat(start_today_odo),
             speed: parseFloat(speed),
             shield_hours: parseFloat(shield_hours),
-            target_trip: target_trip
+            target_trip: target_trip,
+            initial_gap_mins: parseFloat(initial_gap_mins || 4.2),
+            halt_mins: parseFloat(halt_mins || 3.5)
         };
         
         if (config.mode === "parked") config.speed = 0;
@@ -516,12 +518,14 @@ class SpooferEngine {
 
                     if (target_trip_idx >= 0) {
                         const selected_trip = trips[target_trip_idx];
+                        const initial_gap_sec = Math.round((config.initial_gap_mins !== undefined ? parseFloat(config.initial_gap_mins) : 4.2) * 60);
                         const t_end = new Date(selected_trip.end_time_utc.replace(' ', 'T') + 'Z');
-                        const ext_end = new Date(t_end.getTime() + (inject_seconds * 1000));
-                        const win_start_utc = selected_trip.end_time_utc;
+                        const ext_start = new Date(t_end.getTime() + (initial_gap_sec * 1000));
+                        const ext_end = new Date(ext_start.getTime() + (inject_seconds * 1000));
+                        const win_start_utc = this.formatDateStr(ext_start);
                         const win_end_utc = this.formatDateStr(ext_end);
 
-                        this.log(`[${imei}] Extending Trip ${target_trip_idx + 1} from ${win_start_utc} to ${win_end_utc} (+${config.target_hours} hrs)...`);
+                        this.log(`[${imei}] Extending Trip ${target_trip_idx + 1} starting at ${win_start_utc} (gap: ${config.initial_gap_mins || 4.2}m) to ${win_end_utc} (+${config.target_hours} hrs)...`);
 
                         // A. Update only halt packets in {imei} during idle window (protect real moving trips!)
                         const updateSql = `UPDATE \`${imei}\` SET i_status = '1', jcb_ac = '1-0-0-0', totel_km = '${odo_str}' WHERE dt >= '${win_start_utc}' AND dt <= '${win_end_utc}' AND speed = 0`;
@@ -534,7 +538,7 @@ class SpooferEngine {
                         const lng_val = selected_trip.end_lng;
                         
                         for (let h = 1; h <= total_heartbeats; h++) {
-                            const pkt_date = new Date(t_end.getTime() + (h * 60000));
+                            const pkt_date = new Date(ext_start.getTime() + (h * 60000));
                             const dt_str = this.formatDateStr(pkt_date);
                             const dt_s_str = this.formatDateStrIST(pkt_date);
                             heartbeatRows.push(`('${dt_str}', '${dt_s_str}', '${lat_val}', '${lng_val}', '0', '1', '${odo_str}', '1-0-0-0', 2782)`);
