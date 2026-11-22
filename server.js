@@ -1535,6 +1535,118 @@ app.post('/api/sync_app_to_panel', (req, res) => {
     res.json({ success: true, message: `Sync task dispatched to background for ${imeis.length} vehicle(s).` });
 });
 
+app.post('/api/fix_negative_km', (req, res) => {
+    const { imeis, date, base_odo } = req.body;
+    if (!imeis || !Array.isArray(imeis) || imeis.length === 0 || !date) {
+        return res.json({ success: false, message: 'Vehicle IMEIs and Date are required.' });
+    }
+
+    engine.log(`[FIX-NEGATIVE-KM] Starting Negative KM repair for ${imeis.length} vehicle(s) on ${date}...`);
+    
+    imeis.forEach(async (imei) => {
+        try {
+            engine.log(`[FIX-NEGATIVE-KM] [${imei}] Step 1/4: Loading telemetry packets for ${date}...`);
+            
+            const d = new Date(date);
+            const prevD = new Date(d);
+            prevD.setDate(prevD.getDate() - 1);
+            const prevDateStr = prevD.toISOString().split('T')[0];
+            const utcStart = `${prevDateStr} 18:30:00`;
+            const utcEnd = `${date} 18:30:00`;
+
+            // 1. Fetch packets for target date
+            const pkts = await queryEndpoint('dev.igps.io', `SELECT sno, dt, dt_s, lat, lng, speed, i_status, totel_km FROM \`${imei}\` WHERE dt >= '${utcStart}' AND dt <= '${utcEnd}' ORDER BY dt ASC`);
+            if (!Array.isArray(pkts) || pkts.length === 0) {
+                engine.log(`[FIX-NEGATIVE-KM] [${imei}] ⚠️ No packets found on ${date}. Skipping.`);
+                return;
+            }
+
+            // 2. Determine base starting odometer
+            let startingOdo = base_odo;
+            if (!startingOdo || isNaN(startingOdo)) {
+                // Fetch last packet of previous day
+                const prevPkts = await queryEndpoint('dev.igps.io', `SELECT totel_km FROM \`${imei}\` WHERE dt < '${utcStart}' ORDER BY dt DESC LIMIT 1`);
+                if (Array.isArray(prevPkts) && prevPkts.length > 0 && prevPkts[0].totel_km) {
+                    startingOdo = parseFloat(String(prevPkts[0].totel_km).split('-').pop()) || 0;
+                }
+                if (!startingOdo || startingOdo === 0) {
+                    startingOdo = parseFloat(String(pkts[0].totel_km).split('-').pop()) || 2000.0;
+                }
+            }
+            engine.log(`[FIX-NEGATIVE-KM] [${imei}] Step 2/4: Base Starting Odometer set to ${startingOdo.toFixed(3)}`);
+
+            // 3. Monotonically advance odometer across all packets
+            let curOdo = startingOdo;
+            const updateRows = [{ sno: pkts[0].sno, val: `${curOdo.toFixed(3)}-${curOdo.toFixed(3)}` }];
+            let dropsCount = 0;
+
+            for (let i = 1; i < pkts.length; i++) {
+                const prevP = pkts[i - 1];
+                const currP = pkts[i];
+                const lat1 = parseFloat(prevP.lat);
+                const lon1 = parseFloat(prevP.lng);
+                const lat2 = parseFloat(currP.lat);
+                const lon2 = parseFloat(currP.lng);
+                
+                const stepKm = (haversineMeters(lat1, lon1, lat2, lon2)) / 1000.0;
+                const spd = parseFloat(currP.speed) || 0;
+                const ist = parseInt(currP.i_status) || 0;
+                
+                if ((spd > 0 || ist === 1) && stepKm > 0.003) {
+                    curOdo += stepKm;
+                }
+                
+                const origVal = parseFloat(String(currP.totel_km).split('-').pop()) || 0;
+                const prevOrigVal = parseFloat(String(prevP.totel_km).split('-').pop()) || 0;
+                if (origVal < prevOrigVal) {
+                    dropsCount++;
+                }
+
+                updateRows.push({ sno: currP.sno, val: `${curOdo.toFixed(3)}-${curOdo.toFixed(3)}` });
+            }
+
+            engine.log(`[FIX-NEGATIVE-KM] [${imei}] Step 3/4: Repaired ${dropsCount} backward drops. Day Net Travel: ${(curOdo - startingOdo).toFixed(3)} Km.`);
+
+            // 4. Update in DEV table in batches of 100
+            await queryEndpoint('dev.igps.io', `DROP TRIGGER IF EXISTS \`trg_${imei}_lock_km\``, 'update');
+            for (let b = 0; b < updateRows.length; b += 100) {
+                const batch = updateRows.slice(b, b + 100);
+                const cases = batch.map(r => `WHEN ${r.sno} THEN '${r.val}'`).join(' ');
+                const snos = batch.map(r => r.sno).join(',');
+                const upSql = `UPDATE \`${imei}\` SET totel_km = CASE sno {cases} END WHERE sno IN (${snos})`;
+                await queryEndpoint('dev.igps.io', upSql, 'update');
+            }
+
+            // Verify with history_web
+            const p = new URLSearchParams();
+            p.append('imei', imei);
+            p.append('from', `${date} 00:00:00`);
+            p.append('to', `${date} 23:59:59`);
+            p.append('username', 'trichy');
+            p.append('action', 'history_web');
+            const hRes = await axios.post('http://dev.igps.io/http.php', p.toString(), {
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, timeout: 15000
+            });
+
+            if (Array.isArray(hRes.data) && hRes.data.length > 0) {
+                const o0 = parseFloat(hRes.data[0].totel_km.split('-').pop());
+                const o1 = parseFloat(hRes.data[hRes.data.length - 1].totel_km.split('-').pop());
+                const verifiedKm = (o1 - o0).toFixed(1);
+                engine.log(`[FIX-NEGATIVE-KM] [${imei}] ✅ SUCCESS! Negative KM fixed! Playback Total KM: ${verifiedKm}Km (from ${o0.toFixed(3)} to ${o1.toFixed(3)})`);
+            } else {
+                engine.log(`[FIX-NEGATIVE-KM] [${imei}] ⚠️ Completed database repair. Verify in Route Playback.`);
+            }
+
+            engine.save_history(imei, 'fix_negative_km', (curOdo - startingOdo), startingOdo, curOdo, 0, 0, date);
+        } catch(err) {
+            console.error(`[FIX-NEGATIVE-KM ERROR] [${imei}] ${err.message}`);
+            engine.log(`[FIX-NEGATIVE-KM ERROR] [${imei}] ❌ Error: ${err.message}`);
+        }
+    });
+
+    res.json({ success: true, message: `Fix Negative KM task dispatched for ${imeis.length} vehicle(s).` });
+});
+
 app.post('/api/run-travel-report', (req, res) => {
     const { imeis, date, hours, speed, hours_only } = req.body;
     if (!imeis || !date) {

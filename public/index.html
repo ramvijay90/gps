@@ -318,6 +318,24 @@
                                     <span class="title">📲 Sync App to Panel</span>
                                     <span class="desc">Sync full route & playback from mobile app (igps.io) with auto gap-bridging.</span>
                                 </label>
+                                <label class="radio-card" id="mode-fix-negative-label">
+                                    <input type="radio" name="mode" value="fix_negative_km">
+                                    <span class="title">🛠️ Fix Negative KM</span>
+                                    <span class="desc">Eliminates negative KM in Route Playback by advancing odometers monotonically.</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div id="fix-negative-settings" class="hidden">
+                            <div class="form-group">
+                                <label for="negative_km_date">Target Date to Fix Negative KM</label>
+                                <input type="date" id="negative_km_date" class="form-control">
+                                <small style="color: var(--text-secondary); font-size: 0.75rem;">Select the date where Playback shows negative KM (e.g. -65.6Km).</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="base_start_odo">Optional Base Starting Odometer</label>
+                                <input type="number" id="base_start_odo" step="0.001" placeholder="Leave empty to auto-connect to previous day's final odometer">
+                                <small style="color: var(--text-secondary); font-size: 0.75rem;">Auto-connects to previous day's final odometer so the route transitions seamlessly.</small>
                             </div>
                         </div>
 

@@ -55,11 +55,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const syncDateInput = document.getElementById('sync_date');
     if (syncDateInput) syncDateInput.value = yesterdayStr;
 
+    const negativeKmDateInput = document.getElementById('negative_km_date');
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (negativeKmDateInput) negativeKmDateInput.value = todayStr;
+
     // Mode Switching Logic
     const radioCards = document.querySelectorAll('.radio-card');
     const driveSettings = document.getElementById('drive-settings');
     const refreshSettings = document.getElementById('refresh-settings');
     const syncSettings = document.getElementById('sync-settings');
+    const fixNegativeSettings = document.getElementById('fix-negative-settings');
     let currentMode = 'parked';
 
     radioCards.forEach(card => {
@@ -75,21 +80,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 driveSettings.classList.remove('hidden');
                 if (refreshSettings) refreshSettings.classList.add('hidden');
                 if (syncSettings) syncSettings.classList.add('hidden');
+                if (fixNegativeSettings) fixNegativeSettings.classList.add('hidden');
                 startBtn.innerText = 'Start Spoofing';
             } else if (currentMode === 'refresh_cache') {
                 driveSettings.classList.add('hidden');
                 if (refreshSettings) refreshSettings.classList.remove('hidden');
                 if (syncSettings) syncSettings.classList.add('hidden');
+                if (fixNegativeSettings) fixNegativeSettings.classList.add('hidden');
                 startBtn.innerText = 'Refresh Cached Report';
             } else if (currentMode === 'sync_app') {
                 driveSettings.classList.add('hidden');
                 if (refreshSettings) refreshSettings.classList.add('hidden');
                 if (syncSettings) syncSettings.classList.remove('hidden');
+                if (fixNegativeSettings) fixNegativeSettings.classList.add('hidden');
                 startBtn.innerText = '📲 Sync App to Panel';
+            } else if (currentMode === 'fix_negative_km') {
+                driveSettings.classList.add('hidden');
+                if (refreshSettings) refreshSettings.classList.add('hidden');
+                if (syncSettings) syncSettings.classList.add('hidden');
+                if (fixNegativeSettings) fixNegativeSettings.classList.remove('hidden');
+                startBtn.innerText = '🛠️ Fix Negative KM';
             } else {
                 driveSettings.classList.add('hidden');
                 if (refreshSettings) refreshSettings.classList.add('hidden');
                 if (syncSettings) syncSettings.classList.add('hidden');
+                if (fixNegativeSettings) fixNegativeSettings.classList.add('hidden');
                 startBtn.innerText = 'Start Spoofing';
             }
             
@@ -448,6 +463,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     imeis: imeis,
                     date: syncDateStr,
                     target_km: syncOverrideKm ? parseFloat(syncOverrideKm) : null
+                };
+            } else if (currentMode === 'fix_negative_km') {
+                const negDateEl = document.getElementById('negative_km_date');
+                const negDateStr = negDateEl ? negDateEl.value : "";
+                const baseStartOdo = document.getElementById('base_start_odo') ? document.getElementById('base_start_odo').value : "";
+                
+                if (!negDateStr) {
+                    alert("Please select a target date to fix negative KM.");
+                    return;
+                }
+                
+                apiUrl = '/api/fix_negative_km';
+                bodyData = {
+                    imeis: imeis,
+                    date: negDateStr,
+                    base_odo: baseStartOdo ? parseFloat(baseStartOdo) : null
                 };
             }
 
