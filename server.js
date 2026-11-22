@@ -4,12 +4,16 @@ const fs = require('fs');
 const path = require('path');
 const mqtt = require('mqtt');
 const axios = require('axios');
+const { exec } = require('child_process');
+const PYTHON_CMD = process.platform === 'win32' ? 'python' : 'python3';
 const engine = require('./spoofer');
 const { runTravelReport } = require('./travel_report_spoofer');
 
 const app = express();
 const port = process.env.PORT || 5001;
-const DATA_DIR = path.join(__dirname, '..', 'data_storage');
+const DATA_DIR = fs.existsSync(path.join(__dirname, 'data_storage'))
+    ? path.join(__dirname, 'data_storage')
+    : path.join(__dirname, '..', 'data_storage');
 if (!fs.existsSync(DATA_DIR)) {
     try {
         fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -1428,9 +1432,95 @@ app.post('/api/set-sleep-state', (req, res) => {
     res.json({ success: true, message: `Command "${command}" published successfully to device.` });
 });
 
+// ====================================================================
+// Server Cron Jobs & Deduplication Registry
+// ====================================================================
+let cronState = {
+    lastRun: null,
+    nextRun: '05:30 AM IST (Daily)',
+    lastStatus: 'Idle / Ready',
+    lastOutput: ''
+};
+let lastCronRunDate = '';
+
+function runDuplicateCleaner(targetDate, imei) {
+    return new Promise((resolve) => {
+        let cmdArgs = '';
+        if (targetDate) cmdArgs += ` --date ${targetDate}`;
+        if (imei) cmdArgs += ` --imei ${imei}`;
+        const scriptPath = path.join(__dirname, 'auto_clean_and_lock_cron.py');
+        const cmd = `${PYTHON_CMD} "${scriptPath}" ${cmdArgs}`.trim();
+
+        if (engine && typeof engine.log === 'function') {
+            engine.log(`[CRON START] Executing Autonomous Deduplication Engine for ${imei ? 'IMEI ' + imei : 'all spoofed vehicles'} on ${targetDate || 'yesterday'}...`);
+        }
+        cronState.lastStatus = `Running for ${imei ? 'IMEI ' + imei : (targetDate || 'yesterday')}...`;
+
+        exec(cmd, { maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
+            const out = stdout || stderr || '';
+            cronState.lastRun = new Date().toISOString();
+            cronState.lastOutput = out;
+
+            if (err) {
+                cronState.lastStatus = `Error: ${err.message}`;
+                if (engine && typeof engine.log === 'function') {
+                    engine.log(`[CRON ERROR] Deduplication failed: ${err.message}`);
+                }
+                resolve({ success: false, message: err.message, output: out });
+            } else {
+                cronState.lastStatus = 'Completed Successfully';
+                if (engine && typeof engine.log === 'function') {
+                    engine.log(`[CRON SUCCESS] Deduplication & Lock completed for ${targetDate || 'yesterday'}`);
+                }
+                resolve({ success: true, message: 'Deduplication & Lock completed successfully.', output: out });
+            }
+        });
+    });
+}
+
+// Autonomous Daily 05:30 AM IST Scheduler
+function initServerCron() {
+    console.log('[AUTONOMOUS CRON] Initialized: Duplicate cleanup & report lock scheduled for 05:30 AM IST daily.');
+
+    setInterval(() => {
+        try {
+            // Get current time in Indian Standard Time (IST, UTC+5:30)
+            const nowIST = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+            const hours = nowIST.getHours();
+            const mins = nowIST.getMinutes();
+            const todayStr = nowIST.toISOString().split('T')[0];
+
+            // Trigger automatically at 05:30 AM IST
+            if (hours === 5 && mins === 30 && lastCronRunDate !== todayStr) {
+                lastCronRunDate = todayStr;
+                const yesterday = new Date(nowIST.getTime() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                console.log(`[AUTONOMOUS CRON WAKEUP] Woke up at 05:30 AM IST. Cleaning duplicates for ${yesterday}...`);
+                runDuplicateCleaner(yesterday);
+            }
+        } catch (e) {
+            console.error('[CRON TIMER ERROR]', e);
+        }
+    }, 60 * 1000); // Check every 60 seconds
+}
+
+// API: Manual trigger or UI click
+app.post('/api/cron/clean-duplicates', async (req, res) => {
+    const { date, imei } = req.body || {};
+    const result = await runDuplicateCleaner(date, imei);
+    res.json(result);
+});
+
+// API: Check cron status
+app.get('/api/cron/status', (req, res) => {
+    res.json(cronState);
+});
+
 app.listen(port, () => {
     console.log(`Node.js Admin Dashboard running at http://localhost:${port}`);
     
+    // Initialize autonomous background cron
+    initServerCron();
+
     // Asynchronously fetch history from database and sync to history.json
     initHistoryFromDatabase();
 });

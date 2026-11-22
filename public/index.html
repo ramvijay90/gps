@@ -230,6 +230,7 @@
                 <li class="menu-item" data-target="view-gprs-console"><a href="#">🎮 GPRS Console</a></li>
                 <li class="menu-item" data-target="view-km-report"><a href="#">🚗 KM Report</a></li>
                 <li class="menu-item" data-target="view-hours-report"><a href="#">⏱️ SPV Hours Report</a></li>
+                <li class="menu-item" data-target="view-cron-jobs"><a href="#">⏰ Cron Jobs</a></li>
             </ul>
             <div style="margin-top: auto; padding-top: 1rem; border-top: 1px solid #334155; display: flex; align-items: center; justify-content: space-between;">
                 <span id="system-status" class="status-badge offline" style="padding: 0.25rem 0.75rem; font-size: 0.75rem;">System Offline</span>
@@ -638,6 +639,98 @@
                                 <tr><td colspan="5" style="padding: 12px; text-align: center;">Click "Submit" to generate report.</td></tr>
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW 6: CRON JOBS & DEDUPLICATION REGISTRY -->
+            <div id="view-cron-jobs" class="tab-panel hidden">
+                <div class="card" style="margin-bottom: 1.5rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+                        <div>
+                            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                <h2 style="margin: 0;">⏰ Server Cron Jobs & Deduplication Registry</h2>
+                                <span class="status-badge" style="background: rgba(16, 185, 129, 0.2); border: 1px solid #10b981; color: #6ee7b7; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: bold;">● Active 24/7 on Server</span>
+                            </div>
+                            <p style="color: #94a3b8; font-size: 0.85rem; margin-top: 0.35rem;">
+                                Autonomous background daemon running every day at <strong>05:30 AM IST</strong> before the 05:30 AM official morning report download. Automatically cleans duplicate rows in <code>reports</code> and locks pristine single-row travel reports for all spoofed fleet vehicles.
+                            </p>
+                        </div>
+                        <div style="display: flex; gap: 0.75rem; align-items: center;">
+                            <input type="date" id="cron-target-date" class="form-control" style="background: #0f172a; border: 1px solid #334155; color: #fff; padding: 0.5rem; border-radius: 6px;">
+                            <button id="btn-cron-run-all" class="btn btn-primary" style="padding: 0.6rem 1.25rem; font-size: 0.9rem; background: #2563eb;">
+                                🚀 Run Cron Deduplication Now
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Cron Metrics Cards -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                        <div style="background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 1rem;">
+                            <div style="color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; font-weight: bold;">Daily Execution Schedule</div>
+                            <div style="color: #38bdf8; font-size: 1.2rem; font-weight: bold; margin-top: 0.25rem;">05:30 AM IST</div>
+                            <small style="color: #64748b; font-size: 0.75rem;">Automatic server wake-up</small>
+                        </div>
+                        <div style="background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 1rem;">
+                            <div style="color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; font-weight: bold;">Spoofed Vehicles In Cron</div>
+                            <div id="cron-stat-total-vehicles" style="color: #34d399; font-size: 1.2rem; font-weight: bold; margin-top: 0.25rem;">0 Spoofed Vehicles</div>
+                            <small style="color: #64748b; font-size: 0.75rem;">Only spoofed vehicles monitored</small>
+                        </div>
+                        <div style="background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 1rem;">
+                            <div style="color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; font-weight: bold;">Last Execution Status</div>
+                            <div id="cron-stat-last-status" style="color: #fbbf24; font-size: 1.1rem; font-weight: bold; margin-top: 0.25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Ready</div>
+                            <small id="cron-stat-last-time" style="color: #64748b; font-size: 0.75rem;">Never run</small>
+                        </div>
+                        <div style="background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 1rem;">
+                            <div style="color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; font-weight: bold;">Morning Export Window</div>
+                            <div style="color: #c084fc; font-size: 1.2rem; font-weight: bold; margin-top: 0.25rem;">Before 05:30 AM</div>
+                            <small style="color: #64748b; font-size: 0.75rem;">Report locked 3 hours prior</small>
+                        </div>
+                    </div>
+
+                    <!-- Vehicles Filter & Search -->
+                    <div style="display: flex; gap: 1rem; margin-bottom: 1rem; align-items: center; flex-wrap: wrap;">
+                        <input type="text" id="cron-search" placeholder="🔍 Search spoofed vehicle by number or IMEI..." style="flex: 2; min-width: 200px; background: #0f172a; border: 1px solid #334155; color: #fff; padding: 0.6rem; border-radius: 6px;">
+                        <select id="cron-filter-shift" style="flex: 1; min-width: 140px; background: #0f172a; border: 1px solid #334155; color: #fff; padding: 0.6rem; border-radius: 6px;">
+                            <option value="all">All Shifts</option>
+                            <option value="day">☀️ Day Shift Only</option>
+                            <option value="night">🌙 Night Shift Only</option>
+                        </select>
+                        <select id="cron-filter-metric" style="flex: 1; min-width: 140px; background: #0f172a; border: 1px solid #334155; color: #fff; padding: 0.6rem; border-radius: 6px;">
+                            <option value="all">All Spoofed Vehicles</option>
+                            <option value="km">🚗 KM Spoofed</option>
+                            <option value="hours">⏱️ Hours Spoofed</option>
+                        </select>
+                    </div>
+
+                    <!-- Protected Cron Vehicles Table -->
+                    <div style="overflow-x: auto; max-height: 500px; border: 1px solid #334155; border-radius: 8px; margin-bottom: 1.5rem;">
+                        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.88rem;">
+                            <thead style="background: #1e293b; position: sticky; top: 0; z-index: 10;">
+                                <tr style="border-bottom: 1px solid #334155;">
+                                    <th style="padding: 10px;">#</th>
+                                    <th style="padding: 10px;">Vehicle No</th>
+                                    <th style="padding: 10px;">IMEI</th>
+                                    <th style="padding: 10px;">Shift</th>
+                                    <th style="padding: 10px;">Metric</th>
+                                    <th style="padding: 10px;">Last Spoofed Record</th>
+                                    <th style="padding: 10px;">Cron Protection</th>
+                                    <th style="padding: 10px; text-align: center;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cron-table-body">
+                                <tr><td colspan="8" style="text-align: center; color: #94a3b8; padding: 20px;">Loading protected vehicles...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Cron Execution Live Output Console -->
+                    <div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                            <h3 style="margin: 0; font-size: 0.95rem; color: #e2e8f0;">📜 Cron Job Execution Console</h3>
+                            <button id="btn-cron-clear-console" class="btn btn-secondary" style="padding: 3px 8px; font-size: 0.75rem; background: #475569;">Clear</button>
+                        </div>
+                        <div id="cron-console-output" style="background: #020617; border: 1px solid #1e293b; border-radius: 6px; padding: 0.75rem; font-family: 'JetBrains Mono', Consolas, monospace; font-size: 0.8rem; color: #a5f3fc; height: 160px; overflow-y: auto; white-space: pre-wrap;">Awaiting cron run or manual trigger...</div>
                     </div>
                 </div>
             </div>

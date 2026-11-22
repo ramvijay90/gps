@@ -586,6 +586,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     panel.classList.add('hidden');
                 }
             });
+            if (targetId === 'view-cron-jobs') {
+                initCronJobsView();
+            }
         });
     });
 
@@ -1304,6 +1307,271 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Display visual log summary
             alert(`Calculation Completed!\n\nTarget Total: ${targetKmVal} KM\nOriginal Total: ${totalOriginalSum.toFixed(3)} KM\nDifference distributed: ${diff.toFixed(3)} KM`);
+        });
+    }
+
+    // ====================================================================
+    // CRON JOBS & DEDUPLICATION REGISTRY VIEW
+    // ====================================================================
+    let cronInitialized = false;
+    let cronVehicles = [];
+    let cronHistory = [];
+
+    async function initCronJobsView() {
+        const dateInput = document.getElementById('cron-target-date');
+        if (dateInput && !dateInput.value) {
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            dateInput.value = yesterday.toISOString().split('T')[0];
+        }
+
+        fetchCronStatus();
+        
+        try {
+            const [vRes, hRes] = await Promise.all([
+                fetch('/api/vehicles'),
+                fetch('/api/history')
+            ]);
+            cronVehicles = await vRes.json();
+            cronHistory = await hRes.json();
+        } catch (e) {
+            console.error("Error loading vehicles/history for cron view:", e);
+        }
+
+        renderCronVehiclesTable();
+
+        if (!cronInitialized) {
+            cronInitialized = true;
+
+            const search = document.getElementById('cron-search');
+            const filterShift = document.getElementById('cron-filter-shift');
+            const filterMetric = document.getElementById('cron-filter-metric');
+            const btnRunAll = document.getElementById('btn-cron-run-all');
+            const btnClear = document.getElementById('btn-cron-clear-console');
+
+            if (search) search.addEventListener('input', renderCronVehiclesTable);
+            if (filterShift) filterShift.addEventListener('change', renderCronVehiclesTable);
+            if (filterMetric) filterMetric.addEventListener('change', renderCronVehiclesTable);
+
+            if (btnClear) {
+                btnClear.addEventListener('click', () => {
+                    const con = document.getElementById('cron-console-output');
+                    if (con) con.textContent = 'Console cleared.';
+                });
+            }
+
+            if (btnRunAll) {
+                btnRunAll.addEventListener('click', async () => {
+                    const targetDate = document.getElementById('cron-target-date')?.value || '';
+                    btnRunAll.disabled = true;
+                    btnRunAll.textContent = '⏳ Running Cron Deduplication...';
+                    
+                    const con = document.getElementById('cron-console-output');
+                    if (con) con.textContent = `[${new Date().toLocaleTimeString()}] Triggering Server Deduplication for all spoofed vehicles on ${targetDate || 'yesterday'}...\n`;
+
+                    try {
+                        const res = await fetch('/api/cron/clean-duplicates', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ date: targetDate || undefined })
+                        });
+                        const data = await res.json();
+                        if (con) {
+                            con.textContent += `\n[STATUS] ${data.message}\n`;
+                            if (data.output) con.textContent += data.output;
+                        }
+                        fetchCronStatus();
+                    } catch (e) {
+                        if (con) con.textContent += `\n[ERROR] Network error: ${e.message}\n`;
+                    } finally {
+                        btnRunAll.disabled = false;
+                        btnRunAll.textContent = '🚀 Run Cron Deduplication Now';
+                    }
+                });
+            }
+        }
+    }
+
+    async function fetchCronStatus() {
+        try {
+            const res = await fetch('/api/cron/status');
+            const data = await res.json();
+            const statStatus = document.getElementById('cron-stat-last-status');
+            const statTime = document.getElementById('cron-stat-last-time');
+            const con = document.getElementById('cron-console-output');
+
+            if (statStatus) {
+                statStatus.textContent = data.lastStatus || 'Ready';
+                statStatus.style.color = (data.lastStatus || '').includes('Error') ? '#f87171' : '#34d399';
+            }
+            if (statTime) {
+                statTime.textContent = data.lastRun ? `Last: ${new Date(data.lastRun).toLocaleString()}` : 'Scheduled: 05:30 AM IST';
+            }
+            if (con && data.lastOutput && con.textContent.startsWith('Awaiting')) {
+                con.textContent = data.lastOutput;
+            }
+        } catch (e) {
+            console.error('Failed to fetch cron status:', e);
+        }
+    }
+
+    function renderCronVehiclesTable() {
+        const tbody = document.getElementById('cron-table-body');
+        if (!tbody) return;
+
+        const query = (document.getElementById('cron-search')?.value || '').toLowerCase().trim();
+        const filterShift = document.getElementById('cron-filter-shift')?.value || 'all';
+        const filterMetric = document.getElementById('cron-filter-metric')?.value || 'all';
+
+        // Map last spoofed record from cronHistory (Both KM and Hours spoofed vehicles)
+        const lastSpoofedMap = {};
+        if (Array.isArray(cronHistory)) {
+            cronHistory.forEach(h => {
+                if (h && h.imei) {
+                    const addedKm = parseFloat(h.added_km || 0);
+                    const targetHrs = parseFloat(h.target_hours || 0);
+                    const mode = (h.mode || '').toLowerCase();
+                    if (addedKm > 0 || targetHrs > 0 || mode === 'drive' || mode.includes('ghost') || mode.includes('spoof') || mode.includes('night') || mode.includes('hours')) {
+                        if (!lastSpoofedMap[h.imei] || (h.date && h.date >= lastSpoofedMap[h.imei].date)) {
+                            lastSpoofedMap[h.imei] = h;
+                        }
+                    }
+                }
+            });
+        }
+
+        // Filter vehicles strictly to those with active spoofing records
+        let list = (cronVehicles || []).filter(v => lastSpoofedMap[v.imei]);
+
+        if (filterMetric === 'km') {
+            list = list.filter(v => {
+                const rec = lastSpoofedMap[v.imei];
+                const isHours = (rec && (parseFloat(rec.target_hours || 0) > 0 || rec.mode === 'drive')) || (v.type || '').toLowerCase().includes('rig');
+                return !isHours;
+            });
+        } else if (filterMetric === 'hours') {
+            list = list.filter(v => {
+                const rec = lastSpoofedMap[v.imei];
+                const isHours = (rec && (parseFloat(rec.target_hours || 0) > 0 || rec.mode === 'drive')) || (v.type || '').toLowerCase().includes('rig');
+                return isHours;
+            });
+        }
+
+        if (filterShift !== 'all') {
+            list = list.filter(v => {
+                const rec = lastSpoofedMap[v.imei];
+                const isNight = rec && rec.mode && rec.mode.includes('night');
+                return filterShift === 'night' ? isNight : !isNight;
+            });
+        }
+
+        if (query) {
+            list = list.filter(v => 
+                (v.vehicle_no && v.vehicle_no.toLowerCase().includes(query)) ||
+                (v.imei && v.imei.includes(query)) ||
+                (v.type && v.type.toLowerCase().includes(query))
+            );
+        }
+
+        // Sort by latest date descending
+        list.sort((a, b) => {
+            const recA = lastSpoofedMap[a.imei];
+            const recB = lastSpoofedMap[b.imei];
+            return (recB.date || '').localeCompare(recA.date || '');
+        });
+
+        const statTotal = document.getElementById('cron-stat-total-vehicles');
+        if (statTotal) statTotal.textContent = `${list.length} Spoofed Vehicles`;
+
+        if (list.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #94a3b8; padding: 25px;">No spoofed vehicles found in Cron Registry. Only vehicles with active spoofing are monitored here.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = list.map((v, idx) => {
+            const lastRec = lastSpoofedMap[v.imei];
+            const isNight = lastRec && lastRec.mode && lastRec.mode.includes('night');
+            const isHours = (lastRec && (parseFloat(lastRec.target_hours || 0) > 0 || lastRec.mode === 'drive')) || (v.type || '').toLowerCase().includes('rig');
+
+            let lastSpoofMetric = '';
+            if (lastRec) {
+                if (parseFloat(lastRec.target_hours || 0) > 0 || (isHours && parseFloat(lastRec.added_km || 0) === 0)) {
+                    lastSpoofMetric = `(+${lastRec.target_hours || 0}h Idle)`;
+                } else {
+                    lastSpoofMetric = `(+${lastRec.added_km || 0} KM)`;
+                }
+            }
+            const lastSpoofText = lastRec 
+                ? `<span style="color: #38bdf8;">${lastRec.date}</span> <small style="color: #94a3b8;">${lastSpoofMetric}</small>` 
+                : '<span style="color: #64748b;">No recent spoof</span>';
+
+            return `
+                <tr style="border-bottom: 1px solid #1e293b; transition: background 0.2s;">
+                    <td style="padding: 10px; color: #64748b;">${idx + 1}</td>
+                    <td style="padding: 10px; font-weight: 600; color: #fff;">${v.vehicle_no || 'Unknown'}</td>
+                    <td style="padding: 10px; color: #94a3b8; font-family: monospace;">${v.imei}</td>
+                    <td style="padding: 10px;">
+                        <span style="background: ${isNight ? 'rgba(192, 132, 252, 0.15)' : 'rgba(56, 189, 248, 0.15)'}; 
+                                     border: 1px solid ${isNight ? '#c084fc' : '#38bdf8'}; 
+                                     color: ${isNight ? '#e9d5ff' : '#bae6fd'}; 
+                                     padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">
+                            ${isNight ? '🌙 Night' : '☀️ Day'}
+                        </span>
+                    </td>
+                    <td style="padding: 10px;">
+                        <span style="background: ${isHours ? 'rgba(251, 191, 36, 0.15)' : 'rgba(52, 211, 153, 0.15)'}; 
+                                     border: 1px solid ${isHours ? '#fbbf24' : '#34d399'}; 
+                                     color: ${isHours ? '#fde68a' : '#a7f3d0'}; 
+                                     padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">
+                            ${isHours ? '⏱️ Hours' : '🚗 KM'}
+                        </span>
+                    </td>
+                    <td style="padding: 10px;">${lastSpoofText}</td>
+                    <td style="padding: 10px;">
+                        <span style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #6ee7b7; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 500;">
+                            🛡️ Active (05:30 AM)
+                        </span>
+                    </td>
+                    <td style="padding: 10px; text-align: center;">
+                        <button class="btn btn-secondary btn-cron-clean-single" data-imei="${v.imei}" data-veh="${v.vehicle_no}" 
+                                style="padding: 3px 8px; font-size: 0.75rem; background: #334155; border: 1px solid #475569; width: auto; text-transform: none;">
+                            🧹 Clean & Lock
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        // Attach single vehicle clean buttons
+        tbody.querySelectorAll('.btn-cron-clean-single').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const imei = btn.getAttribute('data-imei');
+                const vehNo = btn.getAttribute('data-veh');
+                const targetDate = document.getElementById('cron-target-date')?.value || '';
+                btn.disabled = true;
+                btn.textContent = 'Cleaning...';
+
+                const con = document.getElementById('cron-console-output');
+                if (con) con.textContent = `[${new Date().toLocaleTimeString()}] Triggering Deduplication & Lock for ${vehNo} (${imei}) on ${targetDate || 'yesterday'}...\n`;
+
+                try {
+                    const res = await fetch('/api/cron/clean-duplicates', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ imei, date: targetDate || undefined })
+                    });
+                    const data = await res.json();
+                    if (con) {
+                        con.textContent += `\n[STATUS] ${data.message}\n`;
+                        if (data.output) con.textContent += data.output;
+                    }
+                } catch (err) {
+                    if (con) con.textContent += `\n[ERROR] ${err.message}\n`;
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = '🧹 Clean & Lock';
+                }
+            });
         });
     }
 
