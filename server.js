@@ -1535,6 +1535,33 @@ app.post('/api/sync_app_to_panel', (req, res) => {
     res.json({ success: true, message: `Sync task dispatched to background for ${imeis.length} vehicle(s).` });
 });
 
+async function queryEndpointStrict(host, sql, type = 'select') {
+    const resData = await queryEndpoint(host, sql, type);
+    if (typeof resData === 'string' && resData.includes('SQLSTATE')) {
+        throw new Error(`MySQL error on ${host}: ${resData.substring(0, 200)}`);
+    }
+    return resData;
+}
+
+async function extractTriggerOffset(host, imei) {
+    for (const qSql of [`SHOW CREATE TRIGGER \`trg_${imei}_lock_km\``, `SHOW TRIGGERS LIKE '${imei}'`]) {
+        try {
+            const res = await queryEndpoint(host, qSql, 'select');
+            if (Array.isArray(res) && res.length > 0) {
+                const stmt = res[0]['SQL Original Statement'] || res[0]['Create Trigger'] || res[0]['Statement'] || '';
+                const decMatch = stmt.match(/(?:DECIMAL\(10,3\)\)|odo_val|raw_odo)\s*\+\s*([0-9]+(?:\.[0-9]+)?)/i);
+                if (decMatch) return parseFloat(decMatch[1]);
+                const floatMatches = stmt.match(/\+\s*([0-9]+\.[0-9]+)/g);
+                if (floatMatches && floatMatches.length > 0) {
+                    const lastMatch = floatMatches[floatMatches.length - 1].replace('+', '').trim();
+                    return parseFloat(lastMatch) || 0;
+                }
+            }
+        } catch (e) {}
+    }
+    return 0;
+}
+
 app.post('/api/fix_negative_km', (req, res) => {
     const { imeis, date, base_odo } = req.body;
     if (!imeis || !Array.isArray(imeis) || imeis.length === 0 || !date) {
@@ -1542,11 +1569,11 @@ app.post('/api/fix_negative_km', (req, res) => {
     }
 
     engine.log(`[FIX-NEGATIVE-KM] Starting Negative KM repair for ${imeis.length} vehicle(s) on ${date}...`);
-    
+
     imeis.forEach(async (imei) => {
         try {
-            engine.log(`[FIX-NEGATIVE-KM] [${imei}] Step 1/4: Loading telemetry packets for ${date}...`);
-            
+            engine.log(`[FIX-NEGATIVE-KM] [${imei}] Step 1/5: Loading telemetry & triggers for ${date}...`);
+
             const d = new Date(date);
             const prevD = new Date(d);
             prevD.setDate(prevD.getDate() - 1);
@@ -1554,70 +1581,195 @@ app.post('/api/fix_negative_km', (req, res) => {
             const utcStart = `${prevDateStr} 18:30:00`;
             const utcEnd = `${date} 18:30:00`;
 
-            // 1. Fetch packets for target date
-            const pkts = await queryEndpoint('dev.igps.io', `SELECT sno, dt, dt_s, lat, lng, speed, i_status, totel_km FROM \`${imei}\` WHERE dt >= '${utcStart}' AND dt <= '${utcEnd}' ORDER BY dt ASC`);
+            // Read existing trigger offsets BEFORE dropping triggers
+            const devTrgOffset = await extractTriggerOffset('dev.igps.io', imei);
+            const liveTrgOffset = await extractTriggerOffset('igps.io', imei);
+
+            // 1. Fetch packets for target date from both dev.igps.io and igps.io
+            const pkts = await queryEndpointStrict('dev.igps.io', `SELECT sno, dt, dt_s, lat, lng, speed, i_status, totel_km, pack_count FROM \`${imei}\` WHERE dt >= '${utcStart}' AND dt <= '${utcEnd}' ORDER BY dt ASC`);
             if (!Array.isArray(pkts) || pkts.length === 0) {
                 engine.log(`[FIX-NEGATIVE-KM] [${imei}] ⚠️ No packets found on ${date}. Skipping.`);
                 return;
             }
+            let livePkts = [];
+            try {
+                const lp = await queryEndpoint('igps.io', `SELECT sno, dt, dt_s, lat, lng, speed, i_status, totel_km, pack_count FROM \`${imei}\` WHERE dt >= '${utcStart}' AND dt <= '${utcEnd}' ORDER BY dt ASC`);
+                if (Array.isArray(lp)) livePkts = lp;
+            } catch (e) {}
 
-            // 2. Determine base starting odometer
+            // Choose reference sequence with fewer drops/higher fidelity if dev lost its trigger
+            const liveByDt = new Map();
+            livePkts.forEach(p => liveByDt.set(p.dt, p));
+
+            // 2. Determine base starting odometer & dual odometer delta
             let startingOdo = base_odo;
+            let defaultDelta = 0.0;
+            let hasDualFormat = String(pkts[0].totel_km || '').includes('-');
+            if (hasDualFormat) {
+                const p0Parts = String(pkts[0].totel_km).split('-');
+                const d0 = parseFloat(p0Parts[1]) - parseFloat(p0Parts[0]);
+                if (!isNaN(d0) && d0 >= 0 && d0 < 20) defaultDelta = parseFloat(d0.toFixed(3));
+            }
+
             if (!startingOdo || isNaN(startingOdo)) {
-                // Fetch last packet of previous day
                 const prevPkts = await queryEndpoint('dev.igps.io', `SELECT totel_km FROM \`${imei}\` WHERE dt < '${utcStart}' ORDER BY dt DESC LIMIT 1`);
                 if (Array.isArray(prevPkts) && prevPkts.length > 0 && prevPkts[0].totel_km) {
-                    startingOdo = parseFloat(String(prevPkts[0].totel_km).split('-').pop()) || 0;
+                    const prevParts = String(prevPkts[0].totel_km).split('-');
+                    startingOdo = parseFloat(prevParts[prevParts.length - 1]) || 0;
+                    if (prevParts.length === 2) {
+                        hasDualFormat = true;
+                        const pd = parseFloat(prevParts[1]) - parseFloat(prevParts[0]);
+                        if (!isNaN(pd) && pd >= 0 && pd < 20) defaultDelta = parseFloat(pd.toFixed(3));
+                    }
                 }
                 if (!startingOdo || startingOdo === 0) {
                     startingOdo = parseFloat(String(pkts[0].totel_km).split('-').pop()) || 2000.0;
                 }
             }
-            engine.log(`[FIX-NEGATIVE-KM] [${imei}] Step 2/4: Base Starting Odometer set to ${startingOdo.toFixed(3)}`);
+            engine.log(`[FIX-NEGATIVE-KM] [${imei}] Step 2/5: Base Starting Odometer set to ${startingOdo.toFixed(3)} (Delta=${defaultDelta.toFixed(3)})`);
 
-            // 3. Monotonically advance odometer across all packets
+            // Compute true global latest raw hardware odometer across dev & live before altering any packets
+            let globalRawHwOdo = null;
+            const globalDevRows = await queryEndpoint('dev.igps.io', `SELECT totel_km FROM \`${imei}\` WHERE (pack_count IS NULL OR pack_count < 3000) ORDER BY dt DESC LIMIT 1`);
+            let globalLiveRows = [];
+            try {
+                globalLiveRows = await queryEndpoint('igps.io', `SELECT totel_km FROM \`${imei}\` WHERE (pack_count IS NULL OR pack_count < 3000) ORDER BY dt DESC LIMIT 1`);
+            } catch (e) {}
+            const gDevLast = (Array.isArray(globalDevRows) && globalDevRows.length > 0) ? parseFloat(String(globalDevRows[0].totel_km).split('-').pop()) : NaN;
+            const gLiveLast = (Array.isArray(globalLiveRows) && globalLiveRows.length > 0) ? parseFloat(String(globalLiveRows[0].totel_km).split('-').pop()) : NaN;
+            if (!isNaN(gDevLast) && !isNaN(gLiveLast)) {
+                globalRawHwOdo = Math.min(gDevLast - devTrgOffset, gLiveLast - liveTrgOffset);
+            } else if (!isNaN(gDevLast)) {
+                globalRawHwOdo = gDevLast - devTrgOffset;
+            } else if (!isNaN(gLiveLast)) {
+                globalRawHwOdo = gLiveLast - liveTrgOffset;
+            }
+
+            // Use igps.io deltas when available after any dev trigger drop so genuine real KM is preserved accurately
+            const formatOdo = (k1, pktDelta) => {
+                if (!hasDualFormat) return k1.toFixed(3);
+                const dUse = (pktDelta >= 0 && pktDelta < 20) ? pktDelta : defaultDelta;
+                return `${(k1 - dUse).toFixed(3)}-${k1.toFixed(3)}`;
+            };
+
             let curOdo = startingOdo;
-            const updateRows = [{ sno: pkts[0].sno, val: `${curOdo.toFixed(3)}-${curOdo.toFixed(3)}` }];
+            const p0Parts = String(pkts[0].totel_km).split('-');
+            const p0Delta = p0Parts.length === 2 ? (parseFloat(p0Parts[1]) - parseFloat(p0Parts[0])) : defaultDelta;
+            const repairedByDt = new Map();
+            const updateRowsDev = [{ sno: pkts[0].sno, val: formatOdo(curOdo, p0Delta) }];
+            repairedByDt.set(pkts[0].dt, updateRowsDev[0].val);
             let dropsCount = 0;
 
             for (let i = 1; i < pkts.length; i++) {
                 const prevP = pkts[i - 1];
                 const currP = pkts[i];
+                const prevRef = (liveByDt.get(prevP.dt) && liveByDt.get(currP.dt)) ? liveByDt.get(prevP.dt) : prevP;
+                const currRef = (liveByDt.get(prevP.dt) && liveByDt.get(currP.dt)) ? liveByDt.get(currP.dt) : currP;
+
                 const lat1 = parseFloat(prevP.lat);
                 const lon1 = parseFloat(prevP.lng);
                 const lat2 = parseFloat(currP.lat);
                 const lon2 = parseFloat(currP.lng);
-                
-                const stepKm = (haversineMeters(lat1, lon1, lat2, lon2)) / 1000.0;
+                const stepKm = (!isNaN(lat1) && !isNaN(lat2)) ? (haversineMeters(lat1, lon1, lat2, lon2) / 1000.0) : 0;
                 const spd = parseFloat(currP.speed) || 0;
                 const ist = parseInt(currP.i_status) || 0;
-                
-                if ((spd > 0 || ist === 1) && stepKm > 0.003) {
+
+                const prevValDev = parseFloat(String(prevP.totel_km).split('-').pop()) || 0;
+                const currValDev = parseFloat(String(currP.totel_km).split('-').pop()) || 0;
+                if (currValDev < prevValDev - 0.001) dropsCount++;
+
+                const prevRefVal = parseFloat(String(prevRef.totel_km).split('-').pop()) || 0;
+                const currRefVal = parseFloat(String(currRef.totel_km).split('-').pop()) || 0;
+                const origDelta = currRefVal - prevRefVal;
+
+                if (origDelta < -0.001) {
+                    if (currRef === currP && currValDev >= prevValDev - 0.001) {
+                        // Already counted above
+                    } else if (currValDev >= prevValDev - 0.001) {
+                        dropsCount++;
+                    }
+                    if ((spd > 0 || ist === 1) && stepKm > 0.003 && stepKm < 5.0) {
+                        curOdo += stepKm;
+                    }
+                } else if (origDelta <= Math.max(2.0, stepKm * 3 + 0.5) && origDelta <= 25.0) {
+                    curOdo += origDelta;
+                } else if ((spd > 0 || ist === 1) && stepKm > 0.003 && stepKm < 5.0) {
                     curOdo += stepKm;
                 }
-                
-                const origVal = parseFloat(String(currP.totel_km).split('-').pop()) || 0;
-                const prevOrigVal = parseFloat(String(prevP.totel_km).split('-').pop()) || 0;
-                if (origVal < prevOrigVal) {
-                    dropsCount++;
-                }
 
-                updateRows.push({ sno: currP.sno, val: `${curOdo.toFixed(3)}-${curOdo.toFixed(3)}` });
+                const cParts = String(currP.totel_km).split('-');
+                const cDelta = cParts.length === 2 ? (parseFloat(cParts[1]) - parseFloat(cParts[0])) : defaultDelta;
+                const newVal = formatOdo(curOdo, cDelta);
+                updateRowsDev.push({ sno: currP.sno, val: newVal });
+                repairedByDt.set(currP.dt, newVal);
             }
 
-            engine.log(`[FIX-NEGATIVE-KM] [${imei}] Step 3/4: Repaired ${dropsCount} backward drops. Day Net Travel: ${(curOdo - startingOdo).toFixed(3)} Km.`);
+            engine.log(`[FIX-NEGATIVE-KM] [${imei}] Step 3/5: Repaired ${dropsCount} backward drops. Day Net Travel: ${(curOdo - startingOdo).toFixed(3)} Km (Ending: ${curOdo.toFixed(3)}).`);
 
-            // 4. Update in DEV table in batches of 100
-            await queryEndpoint('dev.igps.io', `DROP TRIGGER IF EXISTS \`trg_${imei}_lock_km\``, 'update');
-            for (let b = 0; b < updateRows.length; b += 100) {
-                const batch = updateRows.slice(b, b + 100);
+            // 4. Update DEV and LIVE tables in batches of 100 (drop triggers first, apply, then re-arm)
+            engine.log(`[FIX-NEGATIVE-KM] [${imei}] Step 4/5: Applying monotonic odometers to dev.igps.io & igps.io...`);
+            for (const host of ['dev.igps.io', 'igps.io']) {
+                await queryEndpoint(host, `DROP TRIGGER IF EXISTS \`trg_${imei}_lock_km\``, 'update');
+            }
+
+            for (let b = 0; b < updateRowsDev.length; b += 100) {
+                const batch = updateRowsDev.slice(b, b + 100);
                 const cases = batch.map(r => `WHEN ${r.sno} THEN '${r.val}'`).join(' ');
                 const snos = batch.map(r => r.sno).join(',');
-                const upSql = `UPDATE \`${imei}\` SET totel_km = CASE sno {cases} END WHERE sno IN (${snos})`;
-                await queryEndpoint('dev.igps.io', upSql, 'update');
+                const upSql = `UPDATE \`${imei}\` SET totel_km = CASE sno ${cases} END WHERE sno IN (${snos})`;
+                await queryEndpointStrict('dev.igps.io', upSql, 'update');
             }
 
-            // Verify with history_web
+            if (livePkts.length > 0) {
+                const updateRowsLive = [];
+                for (const lp of livePkts) {
+                    const newVal = repairedByDt.get(lp.dt);
+                    if (newVal) updateRowsLive.push({ sno: lp.sno, val: newVal });
+                }
+                for (let b = 0; b < updateRowsLive.length; b += 100) {
+                    const batch = updateRowsLive.slice(b, b + 100);
+                    const cases = batch.map(r => `WHEN ${r.sno} THEN '${r.val}'`).join(' ');
+                    const snos = batch.map(r => r.sno).join(',');
+                    const upSqlLive = `UPDATE \`${imei}\` SET totel_km = CASE sno ${cases} END WHERE sno IN (${snos})`;
+                    await queryEndpointStrict('igps.io', upSqlLive, 'update');
+                }
+            }
+
+            // Check latest hardware packet across whole table to determine if fixing today vs historical
+            const laterPkts = await queryEndpoint('dev.igps.io', `SELECT sno, dt, totel_km, pack_count FROM \`${imei}\` WHERE dt > '${utcEnd}' ORDER BY dt ASC LIMIT 1`);
+            let latestDispAfter = curOdo;
+            if (Array.isArray(laterPkts) && laterPkts.length > 0) {
+                const firstLaterOdo = parseFloat(String(laterPkts[0].totel_km).split('-').pop()) || 0;
+                const cascadeShift = parseFloat((curOdo - firstLaterOdo).toFixed(3));
+                if (Math.abs(cascadeShift) > 0.005) {
+                    const shiftSql = hasDualFormat
+                        ? `UPDATE \`${imei}\` SET totel_km = CONCAT(ROUND(CAST(SUBSTRING_INDEX(totel_km, '-', 1) AS DECIMAL(10,3)) + ${cascadeShift}, 3), '-', ROUND(CAST(SUBSTRING_INDEX(totel_km, '-', -1) AS DECIMAL(10,3)) + ${cascadeShift}, 3)) WHERE dt > '${utcEnd}'`
+                        : `UPDATE \`${imei}\` SET totel_km = CAST(ROUND(CAST(totel_km AS DECIMAL(10,3)) + ${cascadeShift}, 3) AS CHAR) WHERE dt > '${utcEnd}'`;
+                    for (const host of ['dev.igps.io', 'igps.io']) {
+                        await queryEndpointStrict(host, shiftSql, 'update');
+                    }
+                    engine.log(`[FIX-NEGATIVE-KM] [${imei}] Cascaded subsequent days after ${date} by ${cascadeShift >= 0 ? '+' : ''}${cascadeShift.toFixed(3)} Km.`);
+                }
+                const maxLater = await queryEndpoint('dev.igps.io', `SELECT totel_km FROM \`${imei}\` WHERE dt > '${utcEnd}' AND (pack_count IS NULL OR pack_count < 3000) ORDER BY dt DESC LIMIT 1`);
+                if (Array.isArray(maxLater) && maxLater.length > 0) {
+                    latestDispAfter = parseFloat(String(maxLater[0].totel_km).split('-').pop()) || curOdo;
+                }
+            }
+
+            // Re-arm hardware lock trigger on BOTH servers so next incoming packets NEVER drop backwards!
+            if (globalRawHwOdo !== null && !isNaN(globalRawHwOdo)) {
+                const newTrgOffset = Math.max(0, parseFloat((latestDispAfter - globalRawHwOdo).toFixed(3)));
+                if (newTrgOffset > 0.01) {
+                    const trgSql = `CREATE TRIGGER \`trg_${imei}_lock_km\` BEFORE INSERT ON \`${imei}\` FOR EACH ROW BEGIN IF NEW.pack_count < 90000 AND NEW.totel_km IS NOT NULL THEN IF NEW.totel_km LIKE '%-%' THEN SET NEW.totel_km = CONCAT(ROUND(CAST(SUBSTRING_INDEX(NEW.totel_km, '-', 1) AS DECIMAL(10,3)) + ${newTrgOffset.toFixed(3)}, 3), '-', ROUND(CAST(SUBSTRING_INDEX(NEW.totel_km, '-', -1) AS DECIMAL(10,3)) + ${newTrgOffset.toFixed(3)}, 3)); ELSE SET NEW.totel_km = CAST(ROUND(CAST(NEW.totel_km AS DECIMAL(10,3)) + ${newTrgOffset.toFixed(3)}, 3) AS CHAR); END IF; END IF; END`;
+                    for (const host of ['dev.igps.io', 'igps.io']) {
+                        await queryEndpointStrict(host, trgSql, 'update');
+                    }
+                    engine.log(`[FIX-NEGATIVE-KM] [${imei}] Hardware lock trigger re-armed on dev & live (+${newTrgOffset.toFixed(3)} KM).`);
+                }
+            }
+
+            // 5. Verify with history_web on dev.igps.io
+            engine.log(`[FIX-NEGATIVE-KM] [${imei}] Step 5/5: Verifying Playback continuity...`);
             const p = new URLSearchParams();
             p.append('imei', imei);
             p.append('from', `${date} 00:00:00`);
@@ -1629,10 +1781,14 @@ app.post('/api/fix_negative_km', (req, res) => {
             });
 
             if (Array.isArray(hRes.data) && hRes.data.length > 0) {
-                const o0 = parseFloat(hRes.data[0].totel_km.split('-').pop());
-                const o1 = parseFloat(hRes.data[hRes.data.length - 1].totel_km.split('-').pop());
+                const o0 = parseFloat(String(hRes.data[0].totel_km).split('-').pop());
+                const o1 = parseFloat(String(hRes.data[hRes.data.length - 1].totel_km).split('-').pop());
                 const verifiedKm = (o1 - o0).toFixed(1);
-                engine.log(`[FIX-NEGATIVE-KM] [${imei}] ✅ SUCCESS! Negative KM fixed! Playback Total KM: ${verifiedKm}Km (from ${o0.toFixed(3)} to ${o1.toFixed(3)})`);
+                if (o1 >= o0 - 0.05) {
+                    engine.log(`[FIX-NEGATIVE-KM] [${imei}] ✅ SUCCESS! Negative KM fixed! Playback Total KM: ${verifiedKm}Km (from ${o0.toFixed(3)} to ${o1.toFixed(3)})`);
+                } else {
+                    engine.log(`[FIX-NEGATIVE-KM] [${imei}] ❌ WARNING: Playback still negative (${verifiedKm}Km: ${o0.toFixed(3)} -> ${o1.toFixed(3)}). Check base_odo or duplicate packets.`);
+                }
             } else {
                 engine.log(`[FIX-NEGATIVE-KM] [${imei}] ⚠️ Completed database repair. Verify in Route Playback.`);
             }
