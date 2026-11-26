@@ -111,6 +111,177 @@ class SpooferEngine {
 
         return { pkts: [], source: 'none' };
     }
+
+    /** Compute great-circle distance in kilometers between two GPS coordinates. */
+    haversineKm(lat1, lon1, lat2, lon2) {
+        const p1 = parseFloat(lat1), l1 = parseFloat(lon1);
+        const p2 = parseFloat(lat2), l2 = parseFloat(lon2);
+        if (!Number.isFinite(p1) || !Number.isFinite(l1) || !Number.isFinite(p2) || !Number.isFinite(l2)) return 0;
+        const R = 6371;
+        const dLat = (p2 - p1) * Math.PI / 180;
+        const dLon = (l2 - l1) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) ** 2 + Math.cos(p1 * Math.PI / 180) * Math.cos(p2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+        return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    /**
+     * Plan contiguous drive-hour extension windows for Ghost Drive mode.
+     * In 'auto' mode, long stationary daytime gaps (>= 20m) are bridged from latest to earliest
+     * before extending the final trip, preventing long mid-day gaps and avoiding future timestamps
+     * on the live day that would otherwise interleave with hardware OFF pings.
+     */
+    planDriveWindows(trips, pkts, target_date_str, inject_seconds, odo_str, config, nowMs = Date.now()) {
+        const planWindows = [];
+        const today_ist_str = this.formatDateStrIST(new Date(nowMs)).split(' ')[0];
+        const day_end_ms = new Date(`${target_date_str}T18:29:00Z`).getTime();
+        // Leave 60s headroom before live clock on the current day so live hardware pings cannot fracture the tail.
+        const safe_ceiling_ms = (target_date_str >= today_ist_str)
+            ? Math.min(day_end_ms, nowMs - 60000)
+            : day_end_ms;
+        const inter_trip_pause_sec = Math.max(
+            Math.round((config.halt_mins !== undefined ? parseFloat(config.halt_mins) : 3.5) * 60),
+            360
+        );
+
+        if (trips.length === 0) {
+            const last_pkt = pkts[pkts.length - 1];
+            const day_start_ms = day_end_ms - 86340000; // 00:00:00 IST of target_date_str
+            const anchorEndMs = Math.min(
+                new Date(`${target_date_str}T18:25:00Z`).getTime(),
+                safe_ceiling_ms,
+                new Date(last_pkt.dt.replace(' ', 'T') + 'Z').getTime()
+            );
+            const anchorStartMs = Math.max(day_start_ms, anchorEndMs - (inject_seconds * 1000));
+            const allocSec = Math.max(0, Math.floor((anchorEndMs - anchorStartMs) / 1000));
+            if (allocSec < 60) {
+                return { planWindows, fallbackTrip: null };
+            }
+            const validCoordPkt = [...pkts].reverse().find(p => Math.abs(parseFloat(p.lat || 0)) > 1 && Math.abs(parseFloat(p.lng || 0)) > 1) || last_pkt;
+            const fallbackTrip = {
+                start_time_utc: this.formatDateStr(new Date(anchorStartMs)),
+                end_time_utc: this.formatDateStr(new Date(anchorStartMs)),
+                start_time_ist: this.formatDateStrIST(new Date(anchorStartMs)),
+                end_time_ist: this.formatDateStrIST(new Date(anchorStartMs)),
+                dist_km: '0.000',
+                dur_sec: 0,
+                start_lat: validCoordPkt.lat,
+                start_lng: validCoordPkt.lng,
+                end_lat: validCoordPkt.lat,
+                end_lng: validCoordPkt.lng,
+                end_odo_str: odo_str,
+                gap_sec: 0
+            };
+            planWindows.push({
+                trip_idx: 0,
+                win_start_ms: anchorStartMs,
+                win_end_ms: anchorEndMs,
+                alloc_sec: allocSec,
+                lat: validCoordPkt.lat,
+                lng: validCoordPkt.lng,
+                odo_str,
+                label: 'Stationary anchor'
+            });
+            return { planWindows, fallbackTrip };
+        }
+
+        if (config.target_trip && config.target_trip !== 'auto') {
+            let chosenIdx = (config.target_trip === 'last') ? (trips.length - 1) : (parseInt(config.target_trip, 10) - 1);
+            if (isNaN(chosenIdx) || chosenIdx < 0 || chosenIdx >= trips.length) {
+                chosenIdx = trips.length - 1;
+            }
+            const tSel = trips[chosenIdx];
+            const endMsSel = new Date(tSel.end_time_utc.replace(' ', 'T') + 'Z').getTime();
+            let maxExplicitSec = Math.max(0, Math.floor((safe_ceiling_ms - endMsSel) / 1000));
+            if (chosenIdx < trips.length - 1) {
+                const nextStartMs = new Date(trips[chosenIdx + 1].start_time_utc.replace(' ', 'T') + 'Z').getTime();
+                maxExplicitSec = Math.min(maxExplicitSec, Math.max(0, Math.floor((nextStartMs - endMsSel) / 1000) - inter_trip_pause_sec));
+            }
+            const allocSec = Math.min(inject_seconds, maxExplicitSec);
+            if (allocSec >= 60) {
+                planWindows.push({
+                    trip_idx: chosenIdx,
+                    win_start_ms: endMsSel + 1000,
+                    win_end_ms: endMsSel + (allocSec * 1000),
+                    alloc_sec: allocSec,
+                    lat: tSel.end_lat,
+                    lng: tSel.end_lng,
+                    odo_str: (chosenIdx === trips.length - 1) ? odo_str : (tSel.end_odo_str || odo_str),
+                    label: `Trip ${chosenIdx + 1} explicit`
+                });
+            }
+            return { planWindows, fallbackTrip: null };
+        }
+
+        let remainingSec = inject_seconds;
+        const usedTripEnd = new Array(trips.length).fill(false);
+
+        const tryFillGap = (idx, minGapSec) => {
+            if (remainingSec < 60 || idx < 0 || idx >= trips.length - 1 || usedTripEnd[idx]) return;
+            const tA = trips[idx], tB = trips[idx + 1];
+            const endMsA = new Date(tA.end_time_utc.replace(' ', 'T') + 'Z').getTime();
+            const startMsB = new Date(tB.start_time_utc.replace(' ', 'T') + 'Z').getTime();
+            const gapSec = Math.floor((startMsB - endMsA) / 1000);
+            if (gapSec < minGapSec) return;
+            if (this.haversineKm(tA.end_lat, tA.end_lng, tB.start_lat, tB.start_lng) > 0.3) return;
+            const maxUsableSec = gapSec - inter_trip_pause_sec;
+            const maxCeilingSec = Math.floor((safe_ceiling_ms - endMsA) / 1000);
+            const capSec = Math.min(maxUsableSec, maxCeilingSec);
+            if (capSec < 60) return;
+            const allocSec = Math.min(remainingSec, capSec);
+            usedTripEnd[idx] = true;
+            remainingSec -= allocSec;
+            planWindows.push({
+                trip_idx: idx,
+                win_start_ms: endMsA + 1000,
+                win_end_ms: endMsA + (allocSec * 1000),
+                alloc_sec: allocSec,
+                lat: tA.end_lat,
+                lng: tA.end_lng,
+                odo_str: tA.end_odo_str || odo_str,
+                label: `Trip ${idx + 1}->${idx + 2} gap (${Math.round(gapSec / 60)}m)`
+            });
+        };
+
+        // Pass 1: Bridge long stationary gaps (>= 20m) backwards from latest gap first
+        const longGapMinSec = Math.max(1200, inter_trip_pause_sec + 300);
+        for (let i = trips.length - 2; i >= 0 && remainingSec >= 60; i--) {
+            tryFillGap(i, longGapMinSec);
+        }
+
+        // Pass 2: Place remaining hours on the final trip shift-end up to safe ceiling
+        if (remainingSec >= 60) {
+            const lastIdx = trips.length - 1;
+            const tLast = trips[lastIdx];
+            const endMsLast = new Date(tLast.end_time_utc.replace(' ', 'T') + 'Z').getTime();
+            const maxTailSec = Math.max(0, Math.floor((safe_ceiling_ms - endMsLast) / 1000));
+            const allocSec = Math.min(remainingSec, maxTailSec);
+            if (allocSec >= 60) {
+                usedTripEnd[lastIdx] = true;
+                remainingSec -= allocSec;
+                planWindows.push({
+                    trip_idx: lastIdx,
+                    win_start_ms: endMsLast + 1000,
+                    win_end_ms: endMsLast + (allocSec * 1000),
+                    alloc_sec: allocSec,
+                    lat: tLast.end_lat,
+                    lng: tLast.end_lng,
+                    odo_str,
+                    label: `Trip ${lastIdx + 1} shift-end`
+                });
+            }
+        }
+
+        // Pass 3: Spill overflow into medium gaps (>= 10m) if live ceiling limited shift-end capacity
+        if (remainingSec >= 60) {
+            const medGapMinSec = Math.max(600, inter_trip_pause_sec + 180);
+            for (let i = trips.length - 2; i >= 0 && remainingSec >= 60; i--) {
+                tryFillGap(i, medGapMinSec);
+            }
+        }
+
+        planWindows.sort((a, b) => a.win_start_ms - b.win_start_ms);
+        return { planWindows, fallbackTrip: null };
+    }
     
     log(message) {
         // Shift time by 5 hours 30 minutes for IST
@@ -504,105 +675,76 @@ class SpooferEngine {
             }
             pushTripIfValid(curr);
 
-            // 4. Select target trip (or handle stationary day safely)
-            let target_trip_idx = -1;
-            if (config.target_trip && config.target_trip !== 'auto') {
-                if (config.target_trip === 'last') {
-                    target_trip_idx = trips.length - 1;
-                } else {
-                    const chosen = parseInt(config.target_trip, 10);
-                    if (!isNaN(chosen) && chosen >= 1 && chosen <= trips.length) {
-                        target_trip_idx = chosen - 1;
-                    }
+            // 4. Plan gap-aware injection windows (bridges long daytime gaps before tail extension)
+            const { planWindows, fallbackTrip } = this.planDriveWindows(trips, pkts, target_date_str, inject_seconds, odo_str, config);
+            if (fallbackTrip) trips.push(fallbackTrip);
+
+            if (planWindows.length === 0) {
+                this.log(`[${imei}] ❌ Aborted Ghost Drive Hours: no safe injection window available.`);
+                return;
+            }
+            const plannedTotalSec = planWindows.reduce((acc, w) => acc + w.alloc_sec, 0);
+            if (plannedTotalSec < inject_seconds - 60) {
+                this.log(`[${imei}] ⚠️ Planned ${(plannedTotalSec / 3600).toFixed(2)}h of requested ${config.target_hours}h to avoid future timestamps or trip overlap.`);
+            }
+
+            // 5. Execute telemetry updates and 60s ON/OFF heartbeats for every planned window
+            let expectedHeartbeats = 0;
+            let insAllDev = true, insAllLive = true, upAllOk = true;
+
+            for (let wIdx = 0; wIdx < planWindows.length; wIdx++) {
+                const w = planWindows[wIdx];
+                const win_start_utc = this.formatDateStr(new Date(w.win_start_ms));
+                const win_end_utc = this.formatDateStr(new Date(w.win_end_ms));
+                const final_off_utc = this.formatDateStr(new Date(w.win_end_ms + 1000));
+                const final_off_ist = this.formatDateStrIST(new Date(w.win_end_ms + 1000));
+
+                this.log(`[${imei}] Window ${wIdx + 1}/${planWindows.length} [${w.label}]: ${win_start_utc} -> ${win_end_utc} UTC (+${(w.alloc_sec / 60).toFixed(1)}m)...`);
+
+                // Idempotent cleanup of prior synthetic heartbeats in this exact window
+                const delPrevSql = `DELETE FROM \`${imei}\` WHERE dt >= '${win_start_utc}' AND dt <= '${final_off_utc}' AND pack_count = 2782`;
+                await this.executeDual(delPrevSql, "update");
+
+                // A. Update existing parked packets in window while preserving non-empty real odometers
+                const updateSql = `UPDATE \`${imei}\` SET i_status = '1', jcb_ac = '1-0-0-0', totel_km = IF(totel_km IS NULL OR totel_km = '', '${w.odo_str}', totel_km) WHERE dt >= '${win_start_utc}' AND dt <= '${win_end_utc}' AND (speed = '0' OR speed = '0.0' OR speed = '0.00')`;
+                const upRes = await this.executeDual(updateSql, "update");
+                if (!upRes.devOk && !upRes.liveOk) upAllOk = false;
+
+                // B. Insert 60s ON heartbeats + exact end-boundary ON packet (including all NOT NULL columns)
+                const heartbeatRows = [];
+                const baseMs = w.win_end_ms - (w.alloc_sec * 1000);
+                for (let offsetSec = 60; offsetSec < w.alloc_sec; offsetSec += 60) {
+                    const pktDate = new Date(baseMs + (offsetSec * 1000));
+                    heartbeatRows.push(`('${this.formatDateStr(pktDate)}', '${this.formatDateStrIST(pktDate)}', '${imei}', '${w.lat}', '${w.lng}', '0', '${battery_val}', '0', '1', '${course_val}', '0-0', '1-0-0-0', '${w.odo_str}', '${tw_val}', 2782)`);
                 }
-            }
-            if (target_trip_idx === -1 && trips.length > 0) {
-                target_trip_idx = trips.length - 1;
-            }
+                const endOnDate = new Date(w.win_end_ms);
+                heartbeatRows.push(`('${this.formatDateStr(endOnDate)}', '${this.formatDateStrIST(endOnDate)}', '${imei}', '${w.lat}', '${w.lng}', '0', '${battery_val}', '0', '1', '${course_val}', '0-0', '1-0-0-0', '${w.odo_str}', '${tw_val}', 2782)`);
+                expectedHeartbeats += heartbeatRows.length;
 
-            let ext_start, ext_end, lat_val, lng_val, win_odo_str;
-            const initial_gap_sec = Math.round((config.initial_gap_mins !== undefined ? parseFloat(config.initial_gap_mins) : 4.2) * 60);
+                for (let b = 0; b < heartbeatRows.length; b += 150) {
+                    const batch = heartbeatRows.slice(b, b + 150);
+                    const insSql = `INSERT IGNORE INTO \`${imei}\` (dt, dt_s, imei, lat, lng, speed, battery, i_time, i_status, course, overspeed, jcb_ac, totel_km, t_w, pack_count) VALUES ${batch.join(',')}`;
+                    const bRes = await this.executeDual(insSql, "insert");
+                    if (!bRes.devOk) insAllDev = false;
+                    if (!bRes.liveOk) insAllLive = false;
+                }
 
-            if (target_trip_idx >= 0) {
-                const selected_trip = trips[target_trip_idx];
-                const t_end = new Date(selected_trip.end_time_utc.replace(' ', 'T') + 'Z');
-                ext_start = new Date(t_end.getTime() + (initial_gap_sec * 1000));
-                ext_end = new Date(ext_start.getTime() + (inject_seconds * 1000));
-                lat_val = selected_trip.end_lat;
-                lng_val = selected_trip.end_lng;
-                win_odo_str = (target_trip_idx === trips.length - 1) ? odo_str : (selected_trip.end_odo_str || odo_str);
-            } else {
-                // Vehicle had 0 moving trips all day: anchor in stationary window before 23:55 IST
-                const anchorEnd = new Date(Math.min(
-                    new Date(`${target_date_str}T18:25:00Z`).getTime(),
-                    new Date(last_pkt.dt.replace(' ', 'T') + 'Z').getTime()
-                ));
-                ext_end = anchorEnd;
-                ext_start = new Date(ext_end.getTime() - (inject_seconds * 1000));
-                const validCoordPkt = [...pkts].reverse().find(p => Math.abs(parseFloat(p.lat || 0)) > 1 && Math.abs(parseFloat(p.lng || 0)) > 1) || last_pkt;
-                lat_val = validCoordPkt.lat;
-                lng_val = validCoordPkt.lng;
-                win_odo_str = odo_str;
-                trips.push({
-                    start_time_utc: this.formatDateStr(ext_start),
-                    end_time_utc: this.formatDateStr(ext_start),
-                    start_time_ist: this.formatDateStrIST(ext_start),
-                    end_time_ist: this.formatDateStrIST(ext_start),
-                    dist_km: '0.000',
-                    dur_sec: 0,
-                    start_lat: lat_val,
-                    start_lng: lng_val,
-                    end_lat: lat_val,
-                    end_lng: lng_val,
-                    end_odo_str: win_odo_str,
-                    gap_sec: 0
-                });
-                target_trip_idx = 0;
+                // C. Final clean OFF packet 1s after window end
+                const finalOffSql = `INSERT IGNORE INTO \`${imei}\` (dt, dt_s, imei, lat, lng, speed, battery, i_time, i_status, course, overspeed, jcb_ac, totel_km, t_w, pack_count) VALUES ('${final_off_utc}', '${final_off_ist}', '${imei}', '${w.lat}', '${w.lng}', '0', '${battery_val}', '0', '0', '${course_val}', '0-0', '0-0-0-0', '${w.odo_str}', '${tw_val}', 2782)`;
+                await this.executeDual(finalOffSql, "insert");
             }
 
-            const win_start_utc = this.formatDateStr(ext_start);
-            const win_end_utc = this.formatDateStr(ext_end);
-            const final_off_utc = this.formatDateStr(new Date(ext_end.getTime() + 1000));
-            const final_off_ist = this.formatDateStrIST(new Date(ext_end.getTime() + 1000));
-
-            this.log(`[${imei}] Extending Trip ${target_trip_idx + 1} (${win_start_utc} -> ${win_end_utc} UTC, +${config.target_hours} hrs)...`);
-
-            // Idempotent cleanup of prior synthetic heartbeats in this exact window
-            const delPrevSql = `DELETE FROM \`${imei}\` WHERE dt >= '${win_start_utc}' AND dt <= '${final_off_utc}' AND pack_count = 2782`;
-            await this.executeDual(delPrevSql, "update");
-
-            // A. Update existing halt packets in window
-            const updateSql = `UPDATE \`${imei}\` SET i_status = '1', jcb_ac = '1-0-0-0', totel_km = '${win_odo_str}' WHERE dt >= '${win_start_utc}' AND dt <= '${win_end_utc}' AND speed = '0'`;
-            const upRes = await this.executeDual(updateSql, "update");
-
-            // B. Insert 60s heartbeats including ALL NOT NULL columns (imei, battery, i_time, course, overspeed, t_w)
-            const heartbeatRows = [];
-            const total_heartbeats = Math.floor(inject_seconds / 60);
-            for (let h = 1; h <= total_heartbeats; h++) {
-                const pkt_date = new Date(ext_start.getTime() + (h * 60000));
-                const dt_str = this.formatDateStr(pkt_date);
-                const dt_s_str = this.formatDateStrIST(pkt_date);
-                heartbeatRows.push(`('${dt_str}', '${dt_s_str}', '${imei}', '${lat_val}', '${lng_val}', '0', '${battery_val}', '0', '1', '${course_val}', '0-0', '1-0-0-0', '${win_odo_str}', '${tw_val}', 2782)`);
+            // 6. Update reports table INDEPENDENTLY on each host across all modified trips
+            const addByTrip = {};
+            let totalInjectedSec = 0;
+            for (const w of planWindows) {
+                addByTrip[w.trip_idx] = (addByTrip[w.trip_idx] || 0) + w.alloc_sec;
+                totalInjectedSec += w.alloc_sec;
+                const t = trips[w.trip_idx];
+                t.dur_sec += w.alloc_sec;
+                const tSt = new Date(t.start_time_utc.replace(' ', 'T') + 'Z');
+                t.end_time_utc = this.formatDateStr(new Date(tSt.getTime() + (t.dur_sec * 1000)));
             }
-
-            let insAllDev = true, insAllLive = true;
-            for (let b = 0; b < heartbeatRows.length; b += 150) {
-                const batch = heartbeatRows.slice(b, b + 150);
-                const insSql = `INSERT IGNORE INTO \`${imei}\` (dt, dt_s, imei, lat, lng, speed, battery, i_time, i_status, course, overspeed, jcb_ac, totel_km, t_w, pack_count) VALUES ${batch.join(',')}`;
-                const bRes = await this.executeDual(insSql, "insert");
-                if (!bRes.devOk) insAllDev = false;
-                if (!bRes.liveOk) insAllLive = false;
-            }
-
-            // C. Final clean OFF packet
-            const finalOffSql = `INSERT IGNORE INTO \`${imei}\` (dt, dt_s, imei, lat, lng, speed, battery, i_time, i_status, course, overspeed, jcb_ac, totel_km, t_w, pack_count) VALUES ('${final_off_utc}', '${final_off_ist}', '${imei}', '${lat_val}', '${lng_val}', '0', '${battery_val}', '0', '0', '${course_val}', '0-0', '0-0-0-0', '${win_odo_str}', '${tw_val}', 2782)`;
-            await this.executeDual(finalOffSql, "insert");
-
-            // 5. Update reports table INDEPENDENTLY on each host
-            const selected_trip = trips[target_trip_idx];
-            selected_trip.dur_sec += inject_seconds;
-            const t_st = new Date(selected_trip.start_time_utc.replace(' ', 'T') + 'Z');
-            selected_trip.end_time_utc = this.formatDateStr(new Date(t_st.getTime() + (selected_trip.dur_sec * 1000)));
 
             const st_str = trips.map(t => t.start_time_utc).join(',');
             const et_str = trips.map(t => t.end_time_utc).join(',');
@@ -614,61 +756,78 @@ class SpooferEngine {
             const elng_str = trips.map(t => t.end_lng).join(',');
             const total_day_dur = trips.reduce((acc, t) => acc + t.dur_sec, 0);
             const total_day_km = trips.reduce((acc, t) => acc + parseFloat(t.dist_km), 0).toFixed(3);
+            const actualInjectedHrs = parseFloat((totalInjectedSec / 3600).toFixed(2));
 
             for (const host of ['dev.igps.io', 'igps.io']) {
-                const repRows = await this.runQuery(host, `SELECT * FROM reports WHERE imei='${imei}' AND dt LIKE '${target_date_str}%' LIMIT 1`, "select", 2);
+                const repRows = await this.runQuery(host, `SELECT * FROM reports WHERE imei='${imei}' AND dt >= '${target_date_str} 00:00:00' AND dt <= '${target_date_str} 23:59:59' ORDER BY sno DESC`, "select", 2);
                 if (Array.isArray(repRows) && repRows.length > 0) {
-                    const row = repRows[0];
-                    const normDurs = (row.normal_duration || "").split(',');
-                    const normETs = (row.normal_end_time || "").split(',');
-                    const acDurs = (row.ac_overall_time || "").split(',');
-                    const acETs = (row.ac_end_time || "").split(',');
-                    if (target_trip_idx >= 0 && target_trip_idx < normDurs.length) {
-                        const origDur = parseInt(normDurs[target_trip_idx], 10) || 0;
-                        const newDur = origDur + inject_seconds;
-                        normDurs[target_trip_idx] = newDur.toString();
-                        acDurs[target_trip_idx] = newDur.toString();
-                        const normSTs = (row.normal_start_time || "").split(',');
-                        if (normSTs[target_trip_idx]) {
-                            const stObj = new Date(normSTs[target_trip_idx].replace(' ', 'T') + 'Z');
-                            const newEtObj = new Date(stObj.getTime() + (newDur * 1000));
-                            normETs[target_trip_idx] = this.formatDateStr(newEtObj);
-                            acETs[target_trip_idx] = normETs[target_trip_idx];
-                        }
+                    const row = repRows.find(r => (r.normal_duration || '').split(',').filter(Boolean).length === trips.length) || repRows[0];
+                    if (repRows.length > 1 && row.sno) {
+                        await this.runQuery(host, `DELETE FROM reports WHERE imei='${imei}' AND dt >= '${target_date_str} 00:00:00' AND dt <= '${target_date_str} 23:59:59' AND sno != '${row.sno}'`, "update", 2);
                     }
-                    const newRunTime = (parseInt(row.run_time, 10) || 0) + inject_seconds;
-                    const newAcRunTime = (parseInt(row.ac_run_time, 10) || 0) + inject_seconds;
-                    const newEngineIdleTime = (parseInt(row.engine_idle_time, 10) || 0) + inject_seconds;
-                    const updateRepSql = `UPDATE reports SET run_time = '${newRunTime}', ac_run_time = '${newAcRunTime}', engine_idle_time = '${newEngineIdleTime}', normal_duration = '${normDurs.join(',')}', normal_end_time = '${normETs.join(',')}', ac_overall_time = '${acDurs.join(',')}', ac_end_time = '${acETs.join(',')}' WHERE imei='${imei}' AND dt LIKE '${target_date_str}%'`;
-                    await this.runQuery(host, updateRepSql, "update", 2);
-                    this.log(`[${imei}] [${host}] Reports updated (+${config.target_hours}h).`);
+                    const normDurs = (row.normal_duration || "").split(',').filter(Boolean);
+                    const normETs = (row.normal_end_time || "").split(',').filter(Boolean);
+                    const normSTs = (row.normal_start_time || "").split(',').filter(Boolean);
+                    const acDurs = (row.ac_overall_time || "").split(',').filter(Boolean);
+                    const acETs = (row.ac_end_time || "").split(',').filter(Boolean);
+                    const newEngineIdleTime = (parseInt(row.engine_idle_time, 10) || 0) + totalInjectedSec;
+                    const snoFilter = row.sno ? `sno = '${row.sno}' AND ` : '';
+
+                    if (normDurs.length === trips.length && normSTs.length === trips.length) {
+                        for (const [idxStr, addSec] of Object.entries(addByTrip)) {
+                            const idx = parseInt(idxStr, 10);
+                            const origDur = parseInt(normDurs[idx], 10) || 0;
+                            let newDur = origDur + addSec;
+                            const stMs = new Date(normSTs[idx].replace(' ', 'T') + 'Z').getTime();
+                            let newEtMs = stMs + (newDur * 1000);
+                            if (idx + 1 < normSTs.length && normSTs[idx + 1]) {
+                                const nextStMs = new Date(normSTs[idx + 1].replace(' ', 'T') + 'Z').getTime();
+                                if (newEtMs > nextStMs - 60000) {
+                                    newEtMs = nextStMs - 60000;
+                                    newDur = Math.max(origDur, Math.floor((newEtMs - stMs) / 1000));
+                                }
+                            }
+                            normDurs[idx] = newDur.toString();
+                            acDurs[idx] = newDur.toString();
+                            normETs[idx] = this.formatDateStr(new Date(newEtMs));
+                            acETs[idx] = normETs[idx];
+                        }
+                        const newRunTime = normDurs.reduce((acc, d) => acc + (parseInt(d, 10) || 0), 0);
+                        const updateRepSql = `UPDATE reports SET run_time = '${newRunTime}', ac_run_time = '${newRunTime}', engine_idle_time = '${newEngineIdleTime}', normal_duration = '${normDurs.join(',')}', normal_end_time = '${normETs.join(',')}', ac_overall_time = '${acDurs.join(',')}', ac_end_time = '${acETs.join(',')}' WHERE ${snoFilter}imei='${imei}' AND dt >= '${target_date_str} 00:00:00' AND dt <= '${target_date_str} 23:59:59'`;
+                        await this.runQuery(host, updateRepSql, "update", 2);
+                    } else {
+                        const rebuildRepSql = `UPDATE reports SET km='${total_day_km}', run_time='${total_day_dur}', ac_run_time='${total_day_dur}', engine_idle_time='${newEngineIdleTime}', ac_overall_time='${dur_str}', ac_overall_km='${km_str}', ac_start_lat='${slat_str}', ac_start_lng='${slng_str}', ac_end_lat='${elat_str}', ac_end_lng='${elng_str}', ac_start_time='${st_str}', ac_end_time='${et_str}', normal_start_time='${st_str}', normal_end_time='${et_str}', normal_km='${km_str}', normal_duration='${dur_str}', normal_start_lat='${slat_str}', normal_start_lng='${slng_str}', normal_end_lat='${elat_str}', normal_end_lng='${elng_str}' WHERE ${snoFilter}imei='${imei}' AND dt >= '${target_date_str} 00:00:00' AND dt <= '${target_date_str} 23:59:59'`;
+                        await this.runQuery(host, rebuildRepSql, "update", 2);
+                    }
+                    this.log(`[${imei}] [${host}] Reports updated (+${actualInjectedHrs}h across ${planWindows.length} window(s)).`);
                 } else if (trips.length > 0) {
                     const insRepSql = `INSERT INTO reports
                     (imei, dt, km, run_time, idle_time, engine_idle_time, overspeed_time, overspeed_count,
                      ac_run_time, ac_idle_time, ac_overall_time, ac_overall_km, ac_start_lat, ac_start_lng, ac_end_lat, ac_end_lng, ac_start_time, ac_end_time,
                      normal_start_time, normal_end_time, normal_km, normal_duration, normal_start_lat, normal_start_lng, normal_end_lat, normal_end_lng, username)
                     VALUES
-                    ('${imei}', '${target_date_str} 00:00:00', '${total_day_km}', '${total_day_dur}', '35000', '${inject_seconds}', '0', '0',
+                    ('${imei}', '${target_date_str} 00:00:00', '${total_day_km}', '${total_day_dur}', '35000', '${totalInjectedSec}', '0', '0',
                      '${total_day_dur}', '0', '${dur_str}', '${km_str}', '${slat_str}', '${slng_str}', '${elat_str}', '${elng_str}', '${st_str}', '${et_str}',
                      '${st_str}', '${et_str}', '${km_str}', '${dur_str}', '${slat_str}', '${slng_str}', '${elat_str}', '${elng_str}', 'trichy')`;
                     await this.runQuery(host, insRepSql, "insert", 2);
-                    this.log(`[${imei}] [${host}] Inserted reports row (+${config.target_hours}h).`);
+                    this.log(`[${imei}] [${host}] Inserted reports row (+${actualInjectedHrs}h across ${planWindows.length} window(s)).`);
                 }
             }
 
-            // 6. Verify injected active rows on DB before logging success to history!
-            const chkDev = await this.runQuery('dev.igps.io', `SELECT COUNT(*) AS cnt FROM \`${imei}\` WHERE dt >= '${win_start_utc}' AND dt <= '${win_end_utc}' AND jcb_ac LIKE '1%'`, "select", 2);
-            const chkLive = await this.runQuery('igps.io', `SELECT COUNT(*) AS cnt FROM \`${imei}\` WHERE dt >= '${win_start_utc}' AND dt <= '${win_end_utc}' AND jcb_ac LIKE '1%'`, "select", 2);
+            // 7. Verify injected active rows on DB across all planned windows before logging history
+            const whereWindows = planWindows.map(w => `(dt >= '${this.formatDateStr(new Date(w.win_start_ms))}' AND dt <= '${this.formatDateStr(new Date(w.win_end_ms))}')`).join(' OR ');
+            const chkDev = await this.runQuery('dev.igps.io', `SELECT COUNT(*) AS cnt FROM \`${imei}\` WHERE (${whereWindows}) AND jcb_ac LIKE '1%'`, "select", 2);
+            const chkLive = await this.runQuery('igps.io', `SELECT COUNT(*) AS cnt FROM \`${imei}\` WHERE (${whereWindows}) AND jcb_ac LIKE '1%'`, "select", 2);
             const cntDev = (Array.isArray(chkDev) && chkDev[0]) ? parseInt(chkDev[0].cnt, 10) || 0 : 0;
             const cntLive = (Array.isArray(chkLive) && chkLive[0]) ? parseInt(chkLive[0].cnt, 10) || 0 : 0;
 
-            if (cntDev < total_heartbeats && cntLive < total_heartbeats) {
-                this.log(`[${imei}] ❌ ERROR: Database write verification failed (dev=${cntDev}/${total_heartbeats}, live=${cntLive}/${total_heartbeats}, upDev=${upRes.devOk}, insDev=${insAllDev}, insLive=${insAllLive}).`);
+            if (cntDev < expectedHeartbeats && cntLive < expectedHeartbeats) {
+                this.log(`[${imei}] ❌ ERROR: Database write verification failed (dev=${cntDev}/${expectedHeartbeats}, live=${cntLive}/${expectedHeartbeats}, upOk=${upAllOk}, insDev=${insAllDev}, insLive=${insAllLive}).`);
                 return;
             }
 
-            this.log(`[${imei}] ✅ Ghost Drive Hours complete & verified (dev=${cntDev} pts, live=${cntLive} pts). Zero negative KM and seamless Travel Summary.`);
-            this.save_history(imei, "drive", 0.0, odo_1, odo_1, config.target_hours, config.shield_hours || 0, target_date_str);
+            this.log(`[${imei}] ✅ Ghost Drive Hours complete & verified (dev=${cntDev} pts, live=${cntLive} pts, +${actualInjectedHrs}h).`);
+            this.save_history(imei, "drive", 0.0, odo_1, odo_1, actualInjectedHrs, config.shield_hours || 0, target_date_str);
             return;
         }
 
