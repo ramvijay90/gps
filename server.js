@@ -186,6 +186,10 @@ app.use(cors());
 app.use(express.json());
 // Serve the frontend UI exactly like Flask's "static" folder
 app.use(express.static('public'));
+app.use((req, res, next) => {
+    checkAndRunDueCronSlots('wakeup');
+    next();
+});
 
 function loadScheduledJobs() {
     try {
@@ -2063,18 +2067,58 @@ app.post('/api/set-sleep-state', (req, res) => {
 });
 
 // ====================================================================
-// Server Cron Jobs & Deduplication Registry
+// Server Cron Jobs & Deduplication Registry (Multi-Pass + Wakeup Catchup)
 // ====================================================================
+const CRON_STATE_FILE = path.join(DATA_DIR, 'cron_state.json');
+const CRON_SLOTS_IST = [
+    { id: '05:30', mins: 5 * 60 + 30 },
+    { id: '05:45', mins: 5 * 60 + 45 },
+    { id: '06:15', mins: 6 * 60 + 15 },
+    { id: '07:00', mins: 7 * 60 },
+    { id: '09:00', mins: 9 * 60 },
+    { id: '12:00', mins: 12 * 60 }
+];
 let cronState = {
     lastRun: null,
-    nextRun: '05:30 AM IST (Daily)',
+    nextRun: '05:30 AM IST (+ Wakeup Catchup)',
     lastStatus: 'Idle / Ready',
-    lastOutput: ''
+    lastOutput: '',
+    completedSlots: {}
 };
-let lastCronRunDate = '';
+let cronInProgress = false;
+
+try {
+    if (fs.existsSync(CRON_STATE_FILE)) {
+        const saved = JSON.parse(fs.readFileSync(CRON_STATE_FILE, 'utf8') || '{}');
+        if (saved && typeof saved === 'object') {
+            cronState = { ...cronState, ...saved, completedSlots: saved.completedSlots || {} };
+        }
+    }
+} catch (e) {}
+
+function persistCronState() {
+    try {
+        fs.writeFileSync(CRON_STATE_FILE, JSON.stringify(cronState, null, 2));
+    } catch (e) {}
+}
+
+function getISTTimeInfo(refDate = new Date()) {
+    const shifted = new Date(refDate.getTime() + 330 * 60 * 1000);
+    const pad = (n) => String(n).padStart(2, '0');
+    const todayIST = `${shifted.getUTCFullYear()}-${pad(shifted.getUTCMonth() + 1)}-${pad(shifted.getUTCDate())}`;
+    const yShifted = new Date(shifted.getTime() - 24 * 60 * 60 * 1000);
+    const yesterdayIST = `${yShifted.getUTCFullYear()}-${pad(yShifted.getUTCMonth() + 1)}-${pad(yShifted.getUTCDate())}`;
+    const hours = shifted.getUTCHours();
+    const mins = shifted.getUTCMinutes();
+    return { todayIST, yesterdayIST, hours, mins, totalMins: hours * 60 + mins };
+}
 
 function runDuplicateCleaner(targetDate, imei) {
     return new Promise((resolve) => {
+        if (cronInProgress && !imei) {
+            return resolve({ success: true, message: 'Deduplication already running in background.' });
+        }
+        cronInProgress = true;
         let cmdArgs = '';
         if (targetDate) cmdArgs += ` --date ${targetDate}`;
         if (imei) cmdArgs += ` --imei ${imei}`;
@@ -2086,7 +2130,8 @@ function runDuplicateCleaner(targetDate, imei) {
         }
         cronState.lastStatus = `Running for ${imei ? 'IMEI ' + imei : (targetDate || 'yesterday')}...`;
 
-        exec(cmd, { maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
+        exec(cmd, { cwd: __dirname, maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
+            cronInProgress = false;
             const out = stdout || stderr || '';
             cronState.lastRun = new Date().toISOString();
             cronState.lastOutput = out;
@@ -2096,41 +2141,46 @@ function runDuplicateCleaner(targetDate, imei) {
                 if (engine && typeof engine.log === 'function') {
                     engine.log(`[CRON ERROR] Deduplication failed: ${err.message}`);
                 }
+                persistCronState();
                 resolve({ success: false, message: err.message, output: out });
             } else {
                 cronState.lastStatus = 'Completed Successfully';
                 if (engine && typeof engine.log === 'function') {
                     engine.log(`[CRON SUCCESS] Deduplication & Lock completed for ${targetDate || 'yesterday'}`);
                 }
+                persistCronState();
                 resolve({ success: true, message: 'Deduplication & Lock completed successfully.', output: out });
             }
         });
     });
 }
 
-// Autonomous Daily 05:30 AM IST Scheduler
-function initServerCron() {
-    console.log('[AUTONOMOUS CRON] Initialized: Duplicate cleanup & report lock scheduled for 05:30 AM IST daily.');
+function checkAndRunDueCronSlots(triggerSource = 'timer') {
+    try {
+        if (cronInProgress) return;
+        const { todayIST, yesterdayIST, totalMins } = getISTTimeInfo();
+        const doneToday = Array.isArray(cronState.completedSlots[todayIST]) ? cronState.completedSlots[todayIST] : [];
+        const passedSlots = CRON_SLOTS_IST.filter(s => totalMins >= s.mins);
+        if (passedSlots.length === 0) return;
 
-    setInterval(() => {
-        try {
-            // Get current time in Indian Standard Time (IST, UTC+5:30)
-            const nowIST = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
-            const hours = nowIST.getHours();
-            const mins = nowIST.getMinutes();
-            const todayStr = nowIST.toISOString().split('T')[0];
-
-            // Trigger automatically at 05:30 AM IST
-            if (hours === 5 && mins === 30 && lastCronRunDate !== todayStr) {
-                lastCronRunDate = todayStr;
-                const yesterday = new Date(nowIST.getTime() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-                console.log(`[AUTONOMOUS CRON WAKEUP] Woke up at 05:30 AM IST. Cleaning duplicates for ${yesterday}...`);
-                runDuplicateCleaner(yesterday);
-            }
-        } catch (e) {
-            console.error('[CRON TIMER ERROR]', e);
+        // Run the latest passed slot not yet executed today (catches Render sleep, late restarts, & post-05:30 PHP late writes)
+        const latestPassed = passedSlots[passedSlots.length - 1];
+        if (!doneToday.includes(latestPassed.id)) {
+            cronState.completedSlots = { [todayIST]: [...doneToday, latestPassed.id] };
+            persistCronState();
+            console.log(`[AUTONOMOUS CRON ${triggerSource.toUpperCase()}] Slot ${latestPassed.id} IST (${todayIST}) -> cleaning duplicates for ${yesterdayIST}...`);
+            runDuplicateCleaner(yesterdayIST);
         }
-    }, 60 * 1000); // Check every 60 seconds
+    } catch (e) {
+        console.error('[CRON TIMER ERROR]', e);
+    }
+}
+
+// Autonomous Daily 05:30 AM IST Multi-Pass & Wakeup Catch-Up Scheduler
+function initServerCron() {
+    console.log('[AUTONOMOUS CRON] Initialized: Multi-pass 05:30-12:00 IST + wakeup catch-up active.');
+    setTimeout(() => checkAndRunDueCronSlots('startup'), 5000);
+    setInterval(() => checkAndRunDueCronSlots('timer'), 60 * 1000);
 }
 
 // API: Manual trigger or UI click
